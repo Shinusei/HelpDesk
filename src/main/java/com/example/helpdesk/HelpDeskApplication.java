@@ -30,10 +30,12 @@ public class HelpDeskApplication {
             Role adminRole = createRoleIfNotFound(roleRepository, "ROLE_ADMIN");
             Role itRole = createRoleIfNotFound(roleRepository, "ROLE_IT_SUPPORT");
             Role employeeRole = createRoleIfNotFound(roleRepository, "ROLE_EMPLOYEE");
+            Role vipRole = createRoleIfNotFound(roleRepository, "ROLE_VIP");
 
             createUserIfNotFound(userRepository, passwordEncoder, "admin", "admin", "Admin User", adminRole);
             createUserIfNotFound(userRepository, passwordEncoder, "it", "it", "IT Support User", itRole);
             createUserIfNotFound(userRepository, passwordEncoder, "user", "user", "Employee User", employeeRole);
+            createUserIfNotFound(userRepository, passwordEncoder, "vip", "vip", "VIP User", vipRole);
 
             // Создаем записи PriorityWeight для всех предопределенных параметров
             for (PriorityParameter param : PriorityParameter.values()) {

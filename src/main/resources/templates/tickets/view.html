@@ -1,83 +1,123 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" th:replace="~{fragments/layout :: main(~{::div.content-wrapper})}">
 <head>
-    <title>View Ticket</title>
+    <title th:text="'Ticket #' + ${ticket.id}"></title>
 </head>
 <body>
-    <h1>Ticket Details</h1>
-    <div>
-        <strong>ID:</strong> <span th:text="${ticket.id}"></span>
-    </div>
-    <div>
-        <strong>Title:</strong> <span th:text="${ticket.title}"></span>
-    </div>
-    <div>
-        <strong>Description:</strong> <span th:text="${ticket.description}"></span>
-    </div>
-    <div>
-        <strong>Status:</strong> <span th:text="${ticket.status}"></span>
-    </div>
-    <div>
-        <strong>Importance:</strong> <span th:text="${ticket.importance.displayName}"></span>
-    </div>
-    <div>
-        <strong>Priority Score:</strong> <span th:text="${ticket.priorityScore}"></span>
-    </div>
-    <div>
-        <strong>Creator:</strong> <span th:text="${ticket.creator.fullName}"></span>
-    </div>
-    <div>
-        <strong>Executor:</strong> <span th:text="${ticket.executor != null ? ticket.executor.fullName : 'Not Assigned'}"></span>
-    </div>
-    <div>
-        <strong>Created At:</strong> <span th:text="${ticket.createdAt}"></span>
-    </div>
-
-    <div sec:authorize="hasAnyRole('ROLE_IT_SUPPORT', 'ROLE_ADMIN')">
-        <hr/>
-        <h3>Update Status</h3>
-        <form th:action="@{/tickets/{id}/update-status(id=${ticket.id})}" method="post">
-            <select name="status">
-                <option th:each="stat : ${allStatuses}"
-                        th:value="${stat}"
-                        th:text="${stat}"
-                        th:selected="${stat == ticket.status}"></option>
-            </select>
-            <button type="submit">Update Status</button>
-        </form>
-
-        <hr/>
-        <h3>Assignment</h3>
-
-        <div sec:authorize="hasRole('ROLE_IT_SUPPORT')">
-            <div th:if="${ticket.executor == null}">
-                <form th:action="@{/tickets/{id}/assign-to-me(id=${ticket.id})}" method="post">
-                    <button type="submit">Assign to me</button>
-                </form>
+    <div class="content-wrapper">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+            <div>
+                <a th:href="@{/tickets}" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">&larr; Back to Tickets</a>
+                <h1 style="margin-top: 0.5rem;" th:text="${ticket.title}"></h1>
+                <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+                    <span class="badge" th:classappend="'badge-status-' + ${ticket.status.name().toLowerCase()}" th:text="${ticket.status}"></span>
+                    <span style="color: var(--text-muted); font-size: 0.875rem;" th:text="'Created by ' + ${ticket.creator.fullName} + ' • ' + ${#temporals.format(ticket.createdAt, 'MMM dd, HH:mm')}"></span>
+                </div>
             </div>
-            <div th:if="${ticket.executor != null and ticket.executor.username == #authentication.name}">
-                <form th:action="@{/tickets/{id}/assign(id=${ticket.id})}" method="post">
-                    <input type="hidden" name="executorId" value=""/>
-                    <button type="submit">Unassign from me</button>
+            <div sec:authorize="hasAnyRole('ROLE_IT_SUPPORT', 'ROLE_ADMIN')" class="card" style="margin-bottom: 0; padding: 1rem;">
+                <h4 style="margin-bottom: 1rem;">Actions</h4>
+                <form th:action="@{/tickets/{id}/update-status(id=${ticket.id})}" method="post" style="margin-bottom: 1rem;">
+                    <select name="status" style="margin-bottom: 0.5rem;">
+                        <option th:each="stat : ${allStatuses}" th:value="${stat}" th:text="${stat}" th:selected="${stat == ticket.status}"></option>
+                    </select>
+                    <textarea name="resolution" placeholder="Resolution (required if closing)" style="margin-bottom: 0.5rem; height: 60px;"></textarea>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Update Status</button>
                 </form>
+                
+                <div sec:authorize="hasRole('ROLE_ADMIN')">
+                    <form th:action="@{/tickets/{id}/assign(id=${ticket.id})}" method="post">
+                        <select name="executorId" style="margin-bottom: 0.5rem;">
+                            <option value="">-- Unassign --</option>
+                            <option th:each="exec : ${executors}" th:value="${exec.id}" th:text="${exec.fullName}" th:selected="${ticket.executor != null and exec.id == ticket.executor.id}"></option>
+                        </select>
+                        <button type="submit" class="btn btn-outline" style="width: 100%;">Update Assignee</button>
+                    </form>
+                </div>
             </div>
         </div>
 
-        <div sec:authorize="hasRole('ROLE_ADMIN')">
-            <form th:action="@{/tickets/{id}/assign(id=${ticket.id})}" method="post">
-                <select name="executorId">
-                    <option value="">-- Unassign --</option>
-                    <option th:each="exec : ${executors}"
-                            th:value="${exec.id}"
-                            th:text="${exec.fullName}"
-                            th:selected="${ticket.executor != null and exec.id == ticket.executor.id}"></option>
-                </select>
-                <button type="submit">Update Assignment</button>
-            </form>
+        <div th:if="${error}" class="card" style="border-color: var(--status-overdue); background-color: rgba(239, 68, 68, 0.1); color: var(--status-overdue);">
+            <span th:text="${error}"></span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+            <!-- Left Column: Description, Attachments, Comments -->
+            <div>
+                <div class="card">
+                    <h3>Description</h3>
+                    <p style="margin-top: 1rem; white-space: pre-wrap;" th:text="${ticket.description}"></p>
+                    
+                    <div th:if="${ticket.resolution != null}" style="margin-top: 2rem; padding: 1rem; background-color: var(--primary-light); border-radius: var(--radius);">
+                        <h4 style="color: var(--primary);">Resolution</h4>
+                        <p th:text="${ticket.resolution}"></p>
+                        <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.5rem;" th:text="'Closed at ' + ${#temporals.format(ticket.closedAt, 'MMM dd, HH:mm')}"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Attachments</h3>
+                    <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 1rem;">
+                        <div th:each="att : ${attachments}" class="card" style="padding: 0.75rem; margin-bottom: 0; min-width: 150px;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;" th:text="${att.fileType}"></div>
+                            <a th:href="@{/tickets/{ticketId}/attachments/{attId}(ticketId=${ticket.id}, attId=${att.id})}" th:text="${att.fileName}" style="text-decoration: none; color: var(--primary); font-weight: 500;"></a>
+                        </div>
+                    </div>
+                    <form th:action="@{/tickets/{id}/attachments(id=${ticket.id})}" method="post" enctype="multipart/form-data" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+                        <input type="file" name="file" style="flex: 1;"/>
+                        <button type="submit" class="btn btn-outline">Upload</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3>Comments</h3>
+                    <div style="margin-top: 1.5rem;">
+                        <div th:each="comment : ${comments}" class="comment-bubble">
+                            <div class="comment-meta">
+                                <strong th:text="${comment.author.fullName}"></strong> • <span th:text="${#temporals.format(comment.createdAt, 'MMM dd, HH:mm')}"></span>
+                            </div>
+                            <p th:text="${comment.text}"></p>
+                        </div>
+                    </div>
+                    <form th:action="@{/tickets/{id}/comments(id=${ticket.id})}" method="post" style="margin-top: 1.5rem;">
+                        <textarea name="text" rows="3" placeholder="Add a comment..." style="margin-bottom: 1rem;"></textarea>
+                        <button type="submit" class="btn btn-primary">Post Comment</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Column: Metadata, SLA, History -->
+            <div>
+                <div class="card">
+                    <h4>Ticket Info</h4>
+                    <div style="margin-top: 1rem;">
+                        <div style="margin-bottom: 1rem;">
+                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">SLA Deadline</label>
+                            <div th:text="${ticket.slaDeadline != null ? #temporals.format(ticket.slaDeadline, 'MMM dd, HH:mm') : 'None'}"
+                                 th:style="${ticket.slaDeadline != null and ticket.slaDeadline.isBefore(T(java.time.LocalDateTime).now()) and ticket.status.name() != 'CLOSED'} ? 'color: var(--status-overdue); font-weight: bold;' : 'font-weight: 600;'"></div>
+                        </div>
+                        <div style="margin-bottom: 1rem;">
+                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Executor</label>
+                            <div style="font-weight: 600;" th:text="${ticket.executor != null ? ticket.executor.fullName : 'Unassigned'}"></div>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Priority Score</label>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);" th:text="${ticket.priorityScore}"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>Activity History</h4>
+                    <div class="timeline" style="margin-top: 1.5rem;">
+                        <div th:each="hist : ${history}" class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);" th:text="${#temporals.format(hist.createdAt, 'MMM dd, HH:mm')}"></div>
+                            <div style="font-weight: 500;" th:text="${hist.user.fullName}"></div>
+                            <div style="font-size: 0.875rem;" th:text="${hist.description}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-
-    <hr/>
-    <a th:href="@{/tickets}">Back to List</a>
 </body>
 </html>

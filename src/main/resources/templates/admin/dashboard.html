@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: main(~{::div.content-wrapper})}">
+<head>
+    <title>Analytics Dashboard</title>
+</head>
+<body>
+    <div class="content-wrapper">
+        <h1 style="margin-bottom: 2rem;">ITSM Analytics Dashboard</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div style="font-size: 0.875rem; color: var(--text-muted);">Total Tickets</div>
+                <div class="stat-value" th:text="${stats.totalTickets}"></div>
+            </div>
+            <div class="stat-card">
+                <div style="font-size: 0.875rem; color: var(--text-muted);">Open Tasks</div>
+                <div class="stat-value" th:text="${stats.openTickets}" style="color: var(--status-new);"></div>
+            </div>
+            <div class="stat-card">
+                <div style="font-size: 0.875rem; color: var(--text-muted);">Closed Resolved</div>
+                <div class="stat-value" th:text="${stats.closedTickets}" style="color: var(--status-closed);"></div>
+            </div>
+            <div class="stat-card" style="border-color: var(--status-overdue);">
+                <div style="font-size: 0.875rem; color: var(--text-muted);">SLA Overdue</div>
+                <div class="stat-value" th:text="${stats.overdueTickets}" style="color: var(--status-overdue);"></div>
+            </div>
+            <div class="stat-card">
+                <div style="font-size: 0.875rem; color: var(--text-muted);">Avg. Resolution Time</div>
+                <div class="stat-value"><span th:text="${#numbers.formatDecimal(stats.avgResolutionTimeHours, 1, 1)}"></span>h</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Recent Activity Insights</h3>
+            <p style="color: var(--text-muted); margin-top: 1rem;">Trends and operational performance are looking stable. Monitor overdue tickets to maintain SLA targets.</p>
+        </div>
+    </div>
+</body>
+</html>

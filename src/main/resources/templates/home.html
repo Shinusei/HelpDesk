@@ -1,19 +1,20 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: main(~{::div.content-wrapper})}">
 <head>
-    <title>Home</title>
+    <title>Home | HelpDesk ITSM</title>
 </head>
 <body>
-    <h1>Welcome to the HelpDesk</h1>
-    <p>You are logged in.</p>
-    <p><a th:href="@{/tickets}">View Tickets</a></p>
-
-    <div sec:authorize="hasRole('ROLE_ADMIN')">
-        <p><a th:href="@{/admin/priority-weights}">Manage Priority Weights</a></p>
+    <div class="content-wrapper">
+        <div class="card" style="padding: 3rem; text-align: center;">
+            <h1 style="color: var(--primary); margin-bottom: 1.5rem;">Welcome to HelpDesk ITSM</h1>
+            <p style="font-size: 1.125rem; color: var(--text-muted); max-width: 600px; margin: 0 auto 2rem auto;">
+                Your professional solution for IT Service Management. Track tickets, monitor SLA, and collaborate effectively.
+            </p>
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <a th:href="@{/tickets}" class="btn btn-primary" style="padding: 0.75rem 2.5rem;">Go to Tickets</a>
+                <a th:href="@{/dashboard}" class="btn btn-outline" style="padding: 0.75rem 2.5rem;">View Dashboard</a>
+            </div>
+        </div>
     </div>
-
-    <form th:action="@{/logout}" method="post">
-        <button type="submit">Logout</button>
-    </form>
 </body>
 </html>

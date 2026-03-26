@@ -1,31 +1,58 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: main(~{::div.content-wrapper})}">
 <head>
     <title>Create New Ticket</title>
 </head>
 <body>
-    <h1>Create New Ticket</h1>
-    <form th:action="@{/tickets}" th:object="${ticket}" method="post">
-        <div>
-            <label for="title">Title:</label>
-            <input type="text" id="title" th:field="*{title}" required/>
+    <div class="content-wrapper">
+        <div style="max-width: 800px; margin: 0 auto;">
+            <a th:href="@{/tickets}" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">&larr; Back to Tickets</a>
+            <h1 style="margin: 1rem 0 2rem 0;">Create New Ticket</h1>
+
+            <div class="card">
+                <form th:action="@{/tickets}" th:object="${ticket}" method="post">
+                    <div class="form-group">
+                        <label for="title">Short Summary</label>
+                        <input type="text" id="title" th:field="*{title}" placeholder="e.g. Printer in Room 302 not responding" required/>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description">Detailed Description</label>
+                        <textarea id="description" th:field="*{description}" rows="5" placeholder="Please describe the issue in detail..." required></textarea>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                        <div class="form-group">
+                            <label for="category">Category</label>
+                            <select id="category" th:field="*{category}" required>
+                                <option th:each="val : ${allCategories}" th:value="${val}" th:text="${val.displayName}"></option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="importance">Importance (Business Value)</label>
+                            <select id="importance" th:field="*{importance}" required>
+                                <option th:each="imp : ${allImportances}" th:value="${imp}" th:text="${imp.displayName}"></option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="urgency">Urgency</label>
+                            <select id="urgency" th:field="*{urgency}" required>
+                                <option th:each="val : ${allUrgencies}" th:value="${val}" th:text="${val.displayName}"></option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="impact">Expected Impact</label>
+                            <select id="impact" th:field="*{impact}" required>
+                                <option th:each="val : ${allImpacts}" th:value="${val}" th:text="${val.displayName}"></option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+                        <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem;">Submit Ticket</button>
+                    </div>
+                </form>
+            </div>
         </div>
-        <div>
-            <label for="description">Description:</label>
-            <textarea id="description" th:field="*{description}" required></textarea>
-        </div>
-        <div>
-            <label for="importance">Importance:</label>
-            <select id="importance" th:field="*{importance}" required>
-                <option th:each="imp : ${allImportances}"
-                        th:value="${imp}"
-                        th:text="${imp.displayName}"></option>
-            </select>
-        </div>
-        <div>
-            <button type="submit">Create Ticket</button>
-        </div>
-    </form>
-    <a th:href="@{/tickets}">Back to List</a>
+    </div>
 </body>
 </html>

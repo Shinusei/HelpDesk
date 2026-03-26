@@ -24,6 +24,18 @@ public class Ticket {
     @Column(name = "importance", length = 20, nullable = false) // ДОБАВЛЕНО
     private Importance importance; // ДОБАВЛЕНО
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "urgency", length = 20, nullable = false)
+    private Urgency urgency = Urgency.MEDIUM;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "impact", length = 20, nullable = false)
+    private Impact impact = Impact.USER;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", length = 20, nullable = false)
+    private Category category = Category.OTHER;
+
     @Column(name = "priority_score")
     private Double priorityScore;
 
@@ -39,9 +51,18 @@ public class Ticket {
     @JoinColumn(name = "executor_id")
     private User executor;
 
+    @Column(name = "resolution", columnDefinition = "text")
+    private String resolution;
+
+    @Column(name = "sla_deadline")
+    private LocalDateTime slaDeadline;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "closed_at")
+    private LocalDateTime closedAt;
 
     public enum Status {
         NEW,

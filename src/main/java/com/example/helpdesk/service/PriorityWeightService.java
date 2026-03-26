@@ -13,9 +13,11 @@ import java.util.Optional;
 public class PriorityWeightService {
 
     private final PriorityWeightRepository priorityWeightRepository;
+    private final com.example.helpdesk.service.TicketService ticketService;
 
-    public PriorityWeightService(PriorityWeightRepository priorityWeightRepository) {
+    public PriorityWeightService(PriorityWeightRepository priorityWeightRepository, @org.springframework.context.annotation.Lazy com.example.helpdesk.service.TicketService ticketService) {
         this.priorityWeightRepository = priorityWeightRepository;
+        this.ticketService = ticketService;
     }
 
     @Transactional(readOnly = true)
@@ -31,7 +33,9 @@ public class PriorityWeightService {
     @Transactional
     public PriorityWeight savePriorityWeight(PriorityWeight priorityWeight) {
         priorityWeight.setUpdatedAt(LocalDateTime.now());
-        return priorityWeightRepository.save(priorityWeight);
+        PriorityWeight saved = priorityWeightRepository.save(priorityWeight);
+        ticketService.recalculateAllPriorities();
+        return saved;
     }
 
     @Transactional

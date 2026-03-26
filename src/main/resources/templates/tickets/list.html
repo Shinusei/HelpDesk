@@ -1,46 +1,57 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" th:replace="~{fragments/layout :: main(~{::div.content-wrapper})}">
 <head>
-    <title>Tickets</title>
+    <title>Tickets List</title>
 </head>
 <body>
-    <h1>Tickets</h1>
+    <div class="content-wrapper">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <h1>Tickets Management</h1>
+            <div sec:authorize="hasRole('ROLE_EMPLOYEE')">
+                <a th:href="@{/tickets/new}" class="btn btn-primary">+ Create New Ticket</a>
+            </div>
+            <div sec:authorize="hasAnyRole('ROLE_IT_SUPPORT', 'ROLE_ADMIN')">
+                <a th:href="@{/tickets/recommended}" class="btn btn-primary">Recommended Ticket</a>
+            </div>
+        </div>
 
-    <div sec:authorize="hasRole('ROLE_EMPLOYEE')">
-        <a th:href="@{/tickets/new}">Create New Ticket</a>
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ticket</th>
+                        <th>Status</th>
+                        <th>Importance</th>
+                        <th>Priority Score</th>
+                        <th>SLA Deadline</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="ticket : ${tickets}">
+                        <td>
+                            <div style="font-weight: 600;" th:text="${ticket.title}"></div>
+                            <div style="font-size: 0.875rem; color: var(--text-muted);" th:text="${ticket.category.displayName}"></div>
+                        </td>
+                        <td>
+                            <span class="badge" th:classappend="'badge-status-' + ${ticket.status.name().toLowerCase()}" th:text="${ticket.status}"></span>
+                        </td>
+                        <td>
+                             <span th:text="${ticket.importance.displayName}"></span>
+                        </td>
+                        <td>
+                            <span style="font-weight: 700; color: var(--primary);" th:text="${ticket.priorityScore}"></span>
+                        </td>
+                        <td>
+                            <span th:text="${ticket.slaDeadline != null ? #temporals.format(ticket.slaDeadline, 'MM-dd HH:mm') : 'N/A'}"
+                                  th:style="${ticket.slaDeadline != null and ticket.slaDeadline.isBefore(T(java.time.LocalDateTime).now()) and ticket.status.name() != 'CLOSED'} ? 'color: var(--status-overdue); font-weight: bold;' : ''"></span>
+                        </td>
+                        <td>
+                            <a th:href="@{/tickets/{id}(id=${ticket.id})}" class="btn btn-outline">View Details</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
-
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Title</th>
-                <th>Status</th>
-                <th>Priority Score</th> <!-- ДОБАВЛЕНО -->
-                <th>Creator</th>
-                <th>Executor</th>
-                <th>Created At</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr th:each="ticket : ${tickets}">
-                <td th:text="${ticket.id}"></td>
-                <td th:text="${ticket.title}"></td>
-                <td th:text="${ticket.status}"></td>
-                <td th:text="${ticket.priorityScore}"></td> <!-- ДОБАВЛЕНО -->
-                <td th:text="${ticket.creator.fullName}"></td>
-                <td th:text="${ticket.executor != null ? ticket.executor.fullName : 'N/A'}"></td>
-                <td th:text="${ticket.createdAt}"></td>
-                <td>
-                    <a th:href="@{/tickets/{id}(id=${ticket.id})}">View</a>
-                </td>
-            </tr>
-        </tbody>
-    </table>
-
-    <form th:action="@{/logout}" method="post">
-        <button type="submit">Logout</button>
-    </form>
 </body>
 </html>

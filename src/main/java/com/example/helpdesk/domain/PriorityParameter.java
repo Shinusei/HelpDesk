@@ -1,7 +1,13 @@
 package com.example.helpdesk.domain;
 
 public enum PriorityParameter {
-    IMPORTANCE("Важность");
+    IMPORTANCE("Важность"),
+    NEWER_UNRESOLVED_TICKETS("Кол-во новых незавершённых заявок"),
+    URGENCY("Срочность"),
+    IMPACT("Влияние"),
+    CATEGORY("Категория (Тематика)"),
+    CREATOR_ROLE("Значимость роли заявителя"),
+    WAITING_HOURS("Кол-во часов ожидания");
     // Здесь можно добавить другие предопределенные параметры, например:
     // URGENCY("Срочность"),
     // IMPACT("Влияние"),
