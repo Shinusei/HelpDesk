@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Create New Ticket</title>
+</head>
+<body>
+    <h1>Create New Ticket</h1>
+    <form th:action="@{/tickets}" th:object="${ticket}" method="post">
+        <div>
+            <label for="title">Title:</label>
+            <input type="text" id="title" th:field="*{title}" required/>
+        </div>
+        <div>
+            <label for="description">Description:</label>
+            <textarea id="description" th:field="*{description}" required></textarea>
+        </div>
+        <div>
+            <label for="importance">Importance:</label>
+            <select id="importance" th:field="*{importance}" required>
+                <option th:each="imp : ${allImportances}"
+                        th:value="${imp}"
+                        th:text="${imp.displayName}"></option>
+            </select>
+        </div>
+        <div>
+            <button type="submit">Create Ticket</button>
+        </div>
+    </form>
+    <a th:href="@{/tickets}">Back to List</a>
+</body>
+</html>

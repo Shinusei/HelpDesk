@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <title>Home</title>
+</head>
+<body>
+    <h1>Welcome to the HelpDesk</h1>
+    <p>You are logged in.</p>
+    <p><a th:href="@{/tickets}">View Tickets</a></p>
+
+    <div sec:authorize="hasRole('ROLE_ADMIN')">
+        <p><a th:href="@{/admin/priority-weights}">Manage Priority Weights</a></p>
+    </div>
+
+    <form th:action="@{/logout}" method="post">
+        <button type="submit">Logout</button>
+    </form>
+</body>
+</html>
