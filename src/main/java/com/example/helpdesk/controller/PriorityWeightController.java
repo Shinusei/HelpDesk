@@ -28,7 +28,7 @@ public class PriorityWeightController {
     // Удаляем метод showCreateForm, так как параметры предопределены и не создаются вручную
 
     @GetMapping("/edit/{id}")
-    public String showEditForm(@PathVariable Integer id, Model model) {
+    public String showEditForm(@PathVariable("id") Integer id, Model model) {
         PriorityWeight weight = priorityWeightService.findPriorityWeightById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid priority weight Id:" + id));
         model.addAttribute("weight", weight);

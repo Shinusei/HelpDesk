@@ -188,6 +188,37 @@ td {
     border-bottom: 1px solid var(--border);
 }
 
+.sort-link {
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.2s;
+    color: var(--text-muted);
+    font-weight: 500;
+    padding: 0.5rem;
+    margin: -0.5rem;
+    border-radius: var(--radius);
+}
+
+.sort-link:hover {
+    background-color: var(--bg-sidebar);
+    color: var(--text-main);
+}
+
+.sort-active {
+    color: var(--primary) !important;
+    font-weight: 700 !important;
+}
+
+.sort-indicator {
+    font-size: 1.1rem;
+}
+
+.sort-indicator-inactive {
+    opacity: 0.5;
+}
+
 /* Forms */
 .form-group {
     margin-bottom: 1.5rem;
@@ -282,3 +313,69 @@ input:focus, select:focus, textarea:focus {
     color: var(--text-muted);
     margin-bottom: 0.5rem;
 }
+
+/* Dropzone & Preview */
+.dropzone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: var(--bg-main);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.dropzone:hover, .dropzone.dragover {
+    border-color: var(--primary);
+    background-color: var(--primary-light);
+}
+
+.dropzone-hint {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.preview-container {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background-color: var(--bg-surface);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.preview-thumbnail {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--radius);
+    object-fit: cover;
+    border: 1px solid var(--border);
+}
+
+.preview-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.preview-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.preview-size {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+

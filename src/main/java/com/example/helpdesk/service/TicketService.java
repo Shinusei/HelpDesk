@@ -18,9 +18,12 @@ import com.example.helpdesk.repository.TicketCommentRepository;
 import com.example.helpdesk.repository.TicketHistoryRepository;
 import com.example.helpdesk.repository.TicketRepository;
 import com.example.helpdesk.repository.UserRepository;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -79,13 +82,13 @@ public class TicketService {
         ticket = ticketRepository.save(ticket);
         recalculateAllPriorities();
         
-        logHistory(ticket, creator, "CREATED", "Ticket created");
+        logHistory(ticket, creator, "CREATED", "Заявка создана");
         return ticket;
     }
 
     @Transactional(readOnly = true)
-    public List<Ticket> findAllTickets() {
-        return ticketRepository.findAll();
+    public List<Ticket> findAllTickets(Sort sort) {
+        return ticketRepository.findAll(sort);
     }
 
     @Transactional(readOnly = true)
@@ -94,10 +97,10 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
-    public List<Ticket> findTicketsByCreator(String creatorUsername) {
+    public List<Ticket> findTicketsByCreator(String creatorUsername, Sort sort) {
         User creator = userRepository.findByUsername(creatorUsername)
                 .orElseThrow(() -> new UsernameNotFoundException("Creator user not found: " + creatorUsername));
-        return ticketRepository.findByCreator(creator);
+        return ticketRepository.findByCreator(creator, sort);
     }
 
     @Transactional
@@ -107,7 +110,7 @@ public class TicketService {
         
         if (newStatus == Ticket.Status.CLOSED) {
             if (resolution == null || resolution.trim().isEmpty()) {
-                throw new IllegalArgumentException("Resolution is mandatory when closing a ticket.");
+                throw new IllegalArgumentException("Решение обязательно при закрытии заявки.");
             }
             ticket.setResolution(resolution);
             ticket.setClosedAt(LocalDateTime.now());
@@ -127,7 +130,7 @@ public class TicketService {
         }
         
         User updater = userRepository.findByUsername(updaterUsername).orElseThrow();
-        logHistory(ticket, updater, "STATUS_CHANGED", "Status changed from " + oldStatus + " to " + newStatus);
+        logHistory(ticket, updater, "STATUS_CHANGED", "Статус изменен с " + oldStatus.getDisplayName() + " на " + newStatus.getDisplayName());
         
         return ticket;
     }
@@ -145,7 +148,7 @@ public class TicketService {
         ticket = ticketRepository.save(ticket);
         
         User assigner = userRepository.findByUsername(assignerUsername).orElseThrow();
-        logHistory(ticket, assigner, "ASSIGNED", "Assigned to " + executorUsername);
+        logHistory(ticket, assigner, "ASSIGNED", "Назначена исполнителю: " + executorUsername);
         return ticket;
     }
 
@@ -160,7 +163,7 @@ public class TicketService {
         ticket = ticketRepository.save(ticket);
         
         User updater = userRepository.findByUsername(updaterUsername).orElseThrow();
-        logHistory(ticket, updater, "UNASSIGNED", "Ticket unassigned");
+        logHistory(ticket, updater, "UNASSIGNED", "Исполнитель снят");
         return ticket;
     }
 
@@ -194,7 +197,11 @@ public class TicketService {
 
     @Transactional(readOnly = true)
     public List<TicketComment> getComments(Ticket ticket) {
-        return ticketCommentRepository.findByTicketOrderByCreatedAtAsc(ticket);
+        // Fetch comments with their attachments proactively to prevent LazyInitializationException or empty collections in Thymeleaf
+        List<TicketComment> comments = ticketCommentRepository.findByTicketWithAttachmentsOrderByCreatedAtAsc(ticket);
+        // Ensure collections are uniformly deduplicated or initialized, though left join fetch returns a unique root entity if we use Set, for Lists it may duplicate if multiple attachments.
+        // It's a OneToMany so List with JOIN FETCH could multiply the comment instance. We must distinct it.
+        return comments.stream().distinct().collect(java.util.stream.Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -204,7 +211,7 @@ public class TicketService {
 
     @Transactional(readOnly = true)
     public List<TicketAttachment> getAttachments(Ticket ticket) {
-        return ticketAttachmentRepository.findByTicketOrderByCreatedAtAsc(ticket);
+        return ticketAttachmentRepository.findByTicketAndCommentIsNullOrderByCreatedAtAsc(ticket);
     }
 
     @Transactional(readOnly = true)
@@ -214,20 +221,62 @@ public class TicketService {
 
     @Transactional
     public TicketAttachment addAttachment(Integer ticketId, org.springframework.web.multipart.MultipartFile file, String uploaderUsername) throws java.io.IOException {
+        return addAttachmentInternal(ticketId, file, uploaderUsername, null);
+    }
+
+    @Transactional
+    public TicketAttachment addCommentAttachment(Integer ticketId, org.springframework.web.multipart.MultipartFile file, String uploaderUsername, TicketComment comment) throws java.io.IOException {
+        return addAttachmentInternal(ticketId, file, uploaderUsername, comment);
+    }
+
+    private TicketAttachment addAttachmentInternal(Integer ticketId, org.springframework.web.multipart.MultipartFile file, String uploaderUsername, TicketComment comment) throws java.io.IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Файл не выбран.");
+        }
         Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new IllegalArgumentException("Ticket not found with ID: " + ticketId));
+                .orElseThrow(() -> new IllegalArgumentException("Заявка не найдена: " + ticketId));
         
         TicketAttachment attachment = new TicketAttachment();
         attachment.setTicket(ticket);
+        attachment.setComment(comment);
         attachment.setFileName(org.springframework.util.StringUtils.cleanPath(file.getOriginalFilename()));
-        attachment.setFileType(file.getContentType());
+        String contentType = file.getContentType();
+        if (contentType == null || contentType.equals("application/octet-stream")) {
+            contentType = MediaTypeFactory.getMediaType(attachment.getFileName())
+                    .map(org.springframework.http.MediaType::toString)
+                    .orElse("application/octet-stream");
+        }
+        attachment.setFileType(contentType);
         attachment.setData(file.getBytes());
+        User uploader = userRepository.findByUsername(uploaderUsername).orElseThrow();
+        attachment.setUploader(uploader);
+        
         ticketAttachmentRepository.save(attachment);
         
-        User uploader = userRepository.findByUsername(uploaderUsername).orElseThrow();
-        logHistory(ticket, uploader, "ATTACHMENT_ADDED", "Added file: " + attachment.getFileName());
+        logHistory(ticket, uploader, "ATTACHMENT_ADDED", "Добавлен файл: " + attachment.getFileName());
         
         return attachment;
+    }
+
+    @Transactional
+    public void deleteAttachment(Integer attachmentId, String username) {
+        TicketAttachment attachment = ticketAttachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Вложение не найдено: " + attachmentId));
+        
+        User user = userRepository.findByUsername(username).orElseThrow();
+        Ticket ticket = attachment.getTicket();
+        
+        // Permission check: Uploader, Support or Admin
+        boolean isUploader = attachment.getUploader() != null && attachment.getUploader().getUsername().equals(username);
+        boolean isSupportOrAdmin = user.getRole().getName().equals("ROLE_IT_SUPPORT") || user.getRole().getName().equals("ROLE_ADMIN");
+        
+        if (!isUploader && !isSupportOrAdmin) {
+            throw new IllegalArgumentException("У вас нет прав для удаления этого вложения.");
+        }
+        
+        String fileName = attachment.getFileName();
+        ticketAttachmentRepository.delete(attachment);
+        logHistory(ticket, user, "ATTACHMENT_DELETED", "Удален файл: " + fileName);
     }
 
     @Transactional
@@ -242,7 +291,7 @@ public class TicketService {
         comment.setAuthor(author);
         comment.setText(text);
         
-        logHistory(ticket, author, "COMMENT_ADDED", "Comment added");
+        logHistory(ticket, author, "COMMENT_ADDED", "Добавлен комментарий");
         return ticketCommentRepository.save(comment);
     }
 

@@ -1,38 +1,38 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: main(~{::div.content-wrapper})}">
 <head>
-    <title>Analytics Dashboard</title>
+    <title>Аналитика</title>
 </head>
 <body>
     <div class="content-wrapper">
-        <h1 style="margin-bottom: 2rem;">ITSM Analytics Dashboard</h1>
+        <h1 style="margin-bottom: 2rem;">Аналитическая панель ITSM</h1>
         
         <div class="stats-grid">
             <div class="stat-card">
-                <div style="font-size: 0.875rem; color: var(--text-muted);">Total Tickets</div>
+                <div style="font-size: 0.875rem; color: var(--text-muted);">Всего заявок</div>
                 <div class="stat-value" th:text="${stats.totalTickets}"></div>
             </div>
             <div class="stat-card">
-                <div style="font-size: 0.875rem; color: var(--text-muted);">Open Tasks</div>
+                <div style="font-size: 0.875rem; color: var(--text-muted);">Открытые задачи</div>
                 <div class="stat-value" th:text="${stats.openTickets}" style="color: var(--status-new);"></div>
             </div>
             <div class="stat-card">
-                <div style="font-size: 0.875rem; color: var(--text-muted);">Closed Resolved</div>
+                <div style="font-size: 0.875rem; color: var(--text-muted);">Решено / Закрыто</div>
                 <div class="stat-value" th:text="${stats.closedTickets}" style="color: var(--status-closed);"></div>
             </div>
             <div class="stat-card" style="border-color: var(--status-overdue);">
-                <div style="font-size: 0.875rem; color: var(--text-muted);">SLA Overdue</div>
+                <div style="font-size: 0.875rem; color: var(--text-muted);">Просрочено SLA</div>
                 <div class="stat-value" th:text="${stats.overdueTickets}" style="color: var(--status-overdue);"></div>
             </div>
             <div class="stat-card">
-                <div style="font-size: 0.875rem; color: var(--text-muted);">Avg. Resolution Time</div>
-                <div class="stat-value"><span th:text="${#numbers.formatDecimal(stats.avgResolutionTimeHours, 1, 1)}"></span>h</div>
+                <div style="font-size: 0.875rem; color: var(--text-muted);">Ср. время решения</div>
+                <div class="stat-value"><span th:text="${#numbers.formatDecimal(stats.avgResolutionTimeHours, 1, 1)}"></span>ч</div>
             </div>
         </div>
 
         <div class="card">
-            <h3>Recent Activity Insights</h3>
-            <p style="color: var(--text-muted); margin-top: 1rem;">Trends and operational performance are looking stable. Monitor overdue tickets to maintain SLA targets.</p>
+            <h3>Оперативная аналитика</h3>
+            <p style="color: var(--text-muted); margin-top: 1rem;">Тренды и операционные показатели выглядят стабильно. Следите за просроченными заявками для соблюдения целей SLA.</p>
         </div>
     </div>
 </body>

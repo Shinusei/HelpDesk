@@ -8,4 +8,5 @@ import java.util.List;
 
 public interface TicketAttachmentRepository extends JpaRepository<TicketAttachment, Integer> {
     List<TicketAttachment> findByTicketOrderByCreatedAtAsc(Ticket ticket);
+    List<TicketAttachment> findByTicketAndCommentIsNullOrderByCreatedAtAsc(Ticket ticket);
 }

@@ -1,16 +1,16 @@
 <html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" th:replace="~{fragments/layout :: main(~{::div.content-wrapper})}">
 <head>
-    <title>Tickets List</title>
+    <title>Список Заявок</title>
 </head>
 <body>
     <div class="content-wrapper">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-            <h1>Tickets Management</h1>
+            <h1>Управление Заявками</h1>
             <div sec:authorize="hasRole('ROLE_EMPLOYEE')">
-                <a th:href="@{/tickets/new}" class="btn btn-primary">+ Create New Ticket</a>
+                <a th:href="@{/tickets/new}" class="btn btn-primary">+ Новая Заявка</a>
             </div>
             <div sec:authorize="hasAnyRole('ROLE_IT_SUPPORT', 'ROLE_ADMIN')">
-                <a th:href="@{/tickets/recommended}" class="btn btn-primary">Recommended Ticket</a>
+                <a th:href="@{/tickets/recommended}" class="btn btn-primary">Рекомендованная Заявка</a>
             </div>
         </div>
 
@@ -18,12 +18,47 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Ticket</th>
-                        <th>Status</th>
-                        <th>Importance</th>
-                        <th>Priority Score</th>
-                        <th>SLA Deadline</th>
-                        <th>Actions</th>
+                        <th>
+                            <a th:href="@{/tickets(sort='title', dir=${sort == 'title' and dir == 'asc' ? 'desc' : 'asc'})}" 
+                               class="sort-link" th:classappend="${sort == 'title'} ? 'sort-active' : ''">
+                                Заявка
+                                <span th:if="${sort == 'title'}" class="sort-indicator" th:text="${dir == 'asc' ? '▴' : '▾'}"></span>
+                                <span th:unless="${sort == 'title'}" class="sort-indicator sort-indicator-inactive">↕</span>
+                            </a>
+                        </th>
+                        <th>
+                            <a th:href="@{/tickets(sort='status', dir=${sort == 'status' and dir == 'asc' ? 'desc' : 'asc'})}" 
+                               class="sort-link" th:classappend="${sort == 'status'} ? 'sort-active' : ''">
+                                Статус
+                                <span th:if="${sort == 'status'}" class="sort-indicator" th:text="${dir == 'asc' ? '▴' : '▾'}"></span>
+                                <span th:unless="${sort == 'status'}" class="sort-indicator sort-indicator-inactive">↕</span>
+                            </a>
+                        </th>
+                        <th>
+                            <a th:href="@{/tickets(sort='importance', dir=${sort == 'importance' and dir == 'asc' ? 'desc' : 'asc'})}" 
+                               class="sort-link" th:classappend="${sort == 'importance'} ? 'sort-active' : ''">
+                                Важность
+                                <span th:if="${sort == 'importance'}" class="sort-indicator" th:text="${dir == 'asc' ? '▴' : '▾'}"></span>
+                                <span th:unless="${sort == 'importance'}" class="sort-indicator sort-indicator-inactive">↕</span>
+                            </a>
+                        </th>
+                        <th>
+                            <a th:href="@{/tickets(sort='priorityScore', dir=${sort == 'priorityScore' and dir == 'asc' ? 'desc' : 'asc'})}" 
+                               class="sort-link" th:classappend="${sort == 'priorityScore'} ? 'sort-active' : ''">
+                                Приоритет
+                                <span th:if="${sort == 'priorityScore'}" class="sort-indicator" th:text="${dir == 'asc' ? '▴' : '▾'}"></span>
+                                <span th:unless="${sort == 'priorityScore'}" class="sort-indicator sort-indicator-inactive">↕</span>
+                            </a>
+                        </th>
+                        <th>
+                            <a th:href="@{/tickets(sort='slaDeadline', dir=${sort == 'slaDeadline' and dir == 'asc' ? 'desc' : 'asc'})}" 
+                               class="sort-link" th:classappend="${sort == 'slaDeadline'} ? 'sort-active' : ''">
+                                SLA
+                                <span th:if="${sort == 'slaDeadline'}" class="sort-indicator" th:text="${dir == 'asc' ? '▴' : '▾'}"></span>
+                                <span th:unless="${sort == 'slaDeadline'}" class="sort-indicator sort-indicator-inactive">↕</span>
+                            </a>
+                        </th>
+                        <th>Действия</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -33,7 +68,7 @@
                             <div style="font-size: 0.875rem; color: var(--text-muted);" th:text="${ticket.category.displayName}"></div>
                         </td>
                         <td>
-                            <span class="badge" th:classappend="'badge-status-' + ${ticket.status.name().toLowerCase()}" th:text="${ticket.status}"></span>
+                            <span class="badge" th:classappend="'badge-status-' + ${ticket.status.name().toLowerCase()}" th:text="${ticket.status.displayName}"></span>
                         </td>
                         <td>
                              <span th:text="${ticket.importance.displayName}"></span>
@@ -42,11 +77,10 @@
                             <span style="font-weight: 700; color: var(--primary);" th:text="${ticket.priorityScore}"></span>
                         </td>
                         <td>
-                            <span th:text="${ticket.slaDeadline != null ? #temporals.format(ticket.slaDeadline, 'MM-dd HH:mm') : 'N/A'}"
-                                  th:style="${ticket.slaDeadline != null and ticket.slaDeadline.isBefore(T(java.time.LocalDateTime).now()) and ticket.status.name() != 'CLOSED'} ? 'color: var(--status-overdue); font-weight: bold;' : ''"></span>
+                            <span th:text="${ticket.slaDeadline != null ? #temporals.format(ticket.slaDeadline, 'dd.MM HH:mm') : '—'}"></span>
                         </td>
                         <td>
-                            <a th:href="@{/tickets/{id}(id=${ticket.id})}" class="btn btn-outline">View Details</a>
+                            <a th:href="@{/tickets/{id}(id=${ticket.id})}" class="btn btn-outline">Подробнее</a>
                         </td>
                     </tr>
                 </tbody>

@@ -65,8 +65,12 @@ public class Ticket {
     private LocalDateTime closedAt;
 
     public enum Status {
-        NEW,
-        IN_PROGRESS,
-        CLOSED
+        NEW("Новый"),
+        IN_PROGRESS("В работе"),
+        CLOSED("Закрыт");
+
+        private final String displayName;
+        Status(String displayName) { this.displayName = displayName; }
+        public String getDisplayName() { return displayName; }
     }
 }

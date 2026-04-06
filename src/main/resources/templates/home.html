@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: main(~{::div.content-wrapper})}">
 <head>
-    <title>Home | HelpDesk ITSM</title>
+    <title>Главная | Служба Поддержки</title>
 </head>
 <body>
     <div class="content-wrapper">
         <div class="card" style="padding: 3rem; text-align: center;">
-            <h1 style="color: var(--primary); margin-bottom: 1.5rem;">Welcome to HelpDesk ITSM</h1>
+            <h1 style="color: var(--primary); margin-bottom: 1.5rem;">Добро пожаловать в Службу Поддержки</h1>
             <p style="font-size: 1.125rem; color: var(--text-muted); max-width: 600px; margin: 0 auto 2rem auto;">
-                Your professional solution for IT Service Management. Track tickets, monitor SLA, and collaborate effectively.
+                Ваше профессиональное решение для управления ИТ-услугами. Отслеживайте заявки, контролируйте SLA и работайте эффективно.
             </p>
             <div style="display: flex; gap: 1rem; justify-content: center;">
-                <a th:href="@{/tickets}" class="btn btn-primary" style="padding: 0.75rem 2.5rem;">Go to Tickets</a>
-                <a th:href="@{/dashboard}" class="btn btn-outline" style="padding: 0.75rem 2.5rem;">View Dashboard</a>
+                <a th:href="@{/tickets}" class="btn btn-primary" style="padding: 0.75rem 2.5rem;">К списку заявок</a>
+                <a th:href="@{/dashboard}" class="btn btn-outline" style="padding: 0.75rem 2.5rem;">Панель управления</a>
             </div>
         </div>
     </div>

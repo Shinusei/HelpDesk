@@ -1,36 +1,21 @@
 <html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" th:replace="~{fragments/layout :: main(~{::div.content-wrapper})}">
 <head>
-    <title th:text="'Ticket #' + ${ticket.id}"></title>
+    <title th:text="'Заявка #' + ${ticket.id}"></title>
 </head>
 <body>
     <div class="content-wrapper">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
             <div>
-                <a th:href="@{/tickets}" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">&larr; Back to Tickets</a>
+                <a th:href="@{/tickets}" style="display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-muted); text-decoration: none; font-weight: 500; font-size: 0.95rem;" onmouseover="this.style.color='var(--text-color)'" onmouseout="this.style.color='var(--text-muted)'">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    К списку заявок
+                </a>
                 <h1 style="margin-top: 0.5rem;" th:text="${ticket.title}"></h1>
                 <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
-                    <span class="badge" th:classappend="'badge-status-' + ${ticket.status.name().toLowerCase()}" th:text="${ticket.status}"></span>
-                    <span style="color: var(--text-muted); font-size: 0.875rem;" th:text="'Created by ' + ${ticket.creator.fullName} + ' • ' + ${#temporals.format(ticket.createdAt, 'MMM dd, HH:mm')}"></span>
-                </div>
-            </div>
-            <div sec:authorize="hasAnyRole('ROLE_IT_SUPPORT', 'ROLE_ADMIN')" class="card" style="margin-bottom: 0; padding: 1rem;">
-                <h4 style="margin-bottom: 1rem;">Actions</h4>
-                <form th:action="@{/tickets/{id}/update-status(id=${ticket.id})}" method="post" style="margin-bottom: 1rem;">
-                    <select name="status" style="margin-bottom: 0.5rem;">
-                        <option th:each="stat : ${allStatuses}" th:value="${stat}" th:text="${stat}" th:selected="${stat == ticket.status}"></option>
-                    </select>
-                    <textarea name="resolution" placeholder="Resolution (required if closing)" style="margin-bottom: 0.5rem; height: 60px;"></textarea>
-                    <button type="submit" class="btn btn-primary" style="width: 100%;">Update Status</button>
-                </form>
-                
-                <div sec:authorize="hasRole('ROLE_ADMIN')">
-                    <form th:action="@{/tickets/{id}/assign(id=${ticket.id})}" method="post">
-                        <select name="executorId" style="margin-bottom: 0.5rem;">
-                            <option value="">-- Unassign --</option>
-                            <option th:each="exec : ${executors}" th:value="${exec.id}" th:text="${exec.fullName}" th:selected="${ticket.executor != null and exec.id == ticket.executor.id}"></option>
-                        </select>
-                        <button type="submit" class="btn btn-outline" style="width: 100%;">Update Assignee</button>
-                    </form>
+                    <span class="badge" th:classappend="'badge-status-' + ${ticket.status.name().toLowerCase()}" th:text="${ticket.status.displayName}"></span>
+                    <span style="color: var(--text-muted); font-size: 0.875rem;" th:text="'Создал: ' + ${ticket.creator.fullName} + ' • ' + ${#temporals.format(ticket.createdAt, 'dd.MM, HH:mm')}"></span>
                 </div>
             </div>
         </div>
@@ -43,74 +28,221 @@
             <!-- Left Column: Description, Attachments, Comments -->
             <div>
                 <div class="card">
-                    <h3>Description</h3>
+                    <h3>Описание</h3>
                     <p style="margin-top: 1rem; white-space: pre-wrap;" th:text="${ticket.description}"></p>
                     
                     <div th:if="${ticket.resolution != null}" style="margin-top: 2rem; padding: 1rem; background-color: var(--primary-light); border-radius: var(--radius);">
-                        <h4 style="color: var(--primary);">Resolution</h4>
+                        <h4 style="color: var(--primary);">Решение</h4>
                         <p th:text="${ticket.resolution}"></p>
-                        <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.5rem;" th:text="'Closed at ' + ${#temporals.format(ticket.closedAt, 'MMM dd, HH:mm')}"></div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.5rem;" th:text="'Закрыто в ' + ${#temporals.format(ticket.closedAt, 'dd.MM, HH:mm')}"></div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h3>Attachments</h3>
+                    <h3>Вложения</h3>
                     <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 1rem;">
-                        <div th:each="att : ${attachments}" class="card" style="padding: 0.75rem; margin-bottom: 0; min-width: 150px;">
-                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;" th:text="${att.fileType}"></div>
-                            <a th:href="@{/tickets/{ticketId}/attachments/{attId}(ticketId=${ticket.id}, attId=${att.id})}" th:text="${att.fileName}" style="text-decoration: none; color: var(--primary); font-weight: 500;"></a>
+                        <div th:each="att : ${attachments}" class="card" style="padding: 0; overflow: hidden; margin-bottom: 0; min-width: 150px; max-width: 250px;">
+                            <!-- Image Preview Section -->
+                            <div th:if="${att.fileType != null and (att.fileType.startsWith('image/') or 
+                                         #strings.endsWith(att.fileName.toLowerCase(), '.jpg') or 
+                                         #strings.endsWith(att.fileName.toLowerCase(), '.jpeg') or 
+                                         #strings.endsWith(att.fileName.toLowerCase(), '.png') or 
+                                         #strings.endsWith(att.fileName.toLowerCase(), '.gif') or 
+                                         #strings.endsWith(att.fileName.toLowerCase(), '.webp'))}">
+                                <a th:href="@{/tickets/{ticketId}/attachments/{attId}(ticketId=${ticket.id}, attId=${att.id})}" target="_blank">
+                                    <img th:src="@{/tickets/{ticketId}/attachments/{attId}(ticketId=${ticket.id}, attId=${att.id})}" 
+                                         style="width: 100%; height: 150px; object-fit: cover; display: block;"/>
+                                </a>
+                            </div>
+                            <!-- Attachment Details -->
+                            <div style="padding: 0.75rem; position: relative;">
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;" th:text="${att.fileType}"></div>
+                                <a th:href="@{/tickets/{ticketId}/attachments/{attId}(ticketId=${ticket.id}, attId=${att.id})}" 
+                                   th:text="${att.fileName}" 
+                                   style="text-decoration: none; color: var(--primary); font-weight: 500; font-size: 0.875rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 20px;"></a>
+                                
+                                <!-- Delete Button -->
+                                <form th:if="${(att.uploader != null AND #authentication.name == att.uploader.username) OR #authorization.expression('hasAnyRole(''ROLE_IT_SUPPORT'', ''ROLE_ADMIN'')')}"
+                                      th:action="@{/tickets/{ticketId}/attachments/{attId}/delete(ticketId=${ticket.id}, attId=${att.id})}" 
+                                      method="post" style="position: absolute; top: 0.75rem; right: 0.75rem;">
+                                    <button type="submit" style="background: none; border: none; color: var(--status-overdue); cursor: pointer; font-size: 1.25rem; line-height: 1; padding: 0;" title="Удалить">×</button>
+                                </form>
+                            </div>
                         </div>
                     </div>
-                    <form th:action="@{/tickets/{id}/attachments(id=${ticket.id})}" method="post" enctype="multipart/form-data" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-                        <input type="file" name="file" style="flex: 1;"/>
-                        <button type="submit" class="btn btn-outline">Upload</button>
+                    <form th:action="@{/tickets/{id}/attachments(id=${ticket.id})}" method="post" enctype="multipart/form-data" id="uploadForm" style="margin-top: 1.5rem;">
+                        <div class="dropzone" id="dropzone">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <div class="dropzone-hint">Перетащите файлы сюда или нажмите для выбора</div>
+                            <input type="file" name="file" id="fileInput" style="display: none;"/>
+                        </div>
+                        
+                        <div id="previewContainer" class="preview-container" style="display: none;">
+                            <img id="previewImage" class="preview-thumbnail" src="" alt="Preview"/>
+                            <div class="preview-info">
+                                <div id="previewName" class="preview-name"></div>
+                                <div id="previewSize" class="preview-size"></div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" id="uploadBtn" class="btn btn-primary" style="width: 100%; margin-top: 1rem; display: none;">Загрузить</button>
                     </form>
+
+                    <script>
+                        const dropzone = document.getElementById('dropzone');
+                        const fileInput = document.getElementById('fileInput');
+                        const previewContainer = document.getElementById('previewContainer');
+                        const previewImage = document.getElementById('previewImage');
+                        const previewName = document.getElementById('previewName');
+                        const previewSize = document.getElementById('previewSize');
+                        const uploadBtn = document.getElementById('uploadBtn');
+
+                        // Trigger file input on click
+                        dropzone.addEventListener('click', () => fileInput.click());
+
+                        // Drag & Drop events
+                        ['dragenter', 'dragover'].forEach(eventName => {
+                            dropzone.addEventListener(eventName, (e) => {
+                                e.preventDefault();
+                                dropzone.classList.add('dragover');
+                            });
+                        });
+
+                        ['dragleave', 'drop'].forEach(eventName => {
+                            dropzone.addEventListener(eventName, (e) => {
+                                e.preventDefault();
+                                dropzone.classList.remove('dragover');
+                            });
+                        });
+
+                        dropzone.addEventListener('drop', (e) => {
+                            const dt = e.dataTransfer;
+                            const files = dt.files;
+                            if (files.length > 0) {
+                                fileInput.files = files;
+                                handleFiles(files[0]);
+                            }
+                        });
+
+                        fileInput.addEventListener('change', (e) => {
+                            if (e.target.files.length > 0) {
+                                handleFiles(e.target.files[0]);
+                            }
+                        });
+
+                        function handleFiles(file) {
+                            previewContainer.style.display = 'flex';
+                            uploadBtn.style.display = 'inline-flex';
+                            previewName.textContent = file.name;
+                            previewSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+
+                            if (file.type.startsWith('image/')) {
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                    previewImage.src = e.target.result;
+                                    previewImage.style.display = 'block';
+                                };
+                                reader.readAsDataURL(file);
+                            } else {
+                                previewImage.style.display = 'none';
+                            }
+                        }
+                    </script>
                 </div>
 
                 <div class="card">
-                    <h3>Comments</h3>
+                    <h3>Комментарии</h3>
                     <div style="margin-top: 1.5rem;">
                         <div th:each="comment : ${comments}" class="comment-bubble">
                             <div class="comment-meta">
-                                <strong th:text="${comment.author.fullName}"></strong> • <span th:text="${#temporals.format(comment.createdAt, 'MMM dd, HH:mm')}"></span>
+                                <strong th:text="${comment.author.fullName}"></strong> • <span th:text="${#temporals.format(comment.createdAt, 'dd.MM, HH:mm')}"></span>
                             </div>
                             <p th:text="${comment.text}"></p>
+                            
+                            <!-- Вложения комментария -->
+                            <div th:if="${not #lists.isEmpty(comment.attachments)}" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color); display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                <div th:each="att : ${comment.attachments}">
+                                    <!-- Пьювью для картинок -->
+                                    <a th:if="${att.fileType != null and att.fileType.startsWith('image/')}" th:href="@{/tickets/{id}/attachments/{attId}(id=${ticket.id}, attId=${att.id})}" target="_blank" style="display: block; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; height: 80px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                                        <img th:src="@{/tickets/{id}/attachments/{attId}(id=${ticket.id}, attId=${att.id})}" th:alt="${att.fileName}" style="height: 100%; width: auto; max-width: 150px; object-fit: cover;" th:title="${att.fileName}"/>
+                                    </a>
+                                    <!-- Обычная ссылка для других файлов -->
+                                    <a th:unless="${att.fileType != null and att.fileType.startsWith('image/')}" th:href="@{/tickets/{id}/attachments/{attId}(id=${ticket.id}, attId=${att.id})}" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;" th:title="${att.fileName}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                        <span th:text="${att.fileName}" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <form th:action="@{/tickets/{id}/comments(id=${ticket.id})}" method="post" style="margin-top: 1.5rem;">
-                        <textarea name="text" rows="3" placeholder="Add a comment..." style="margin-bottom: 1rem;"></textarea>
-                        <button type="submit" class="btn btn-primary">Post Comment</button>
+                    <form th:action="@{/tickets/{id}/comments(id=${ticket.id})}" method="post" enctype="multipart/form-data" style="margin-top: 1.5rem;">
+                        <textarea name="text" rows="3" placeholder="Добавить комментарий..." style="margin-bottom: 1rem; width: 100%;"></textarea>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                            <!-- File input -->
+                            <div style="flex-grow: 1;">
+                                <label for="commentFile" style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-muted); font-size: 0.9rem; padding: 0.5rem 0;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                                    </svg>
+                                    <span id="commentFileName">Прикрепить файл (опционально)</span>
+                                </label>
+                                <input type="file" name="file" id="commentFile" style="display: none;" onchange="document.getElementById('commentFileName').textContent = this.files.length > 0 ? this.files[0].name : 'Прикрепить файл (опционально)'" />
+                            </div>
+                            <!-- Submit btn -->
+                            <button type="submit" class="btn btn-primary">Отправить</button>
+                        </div>
                     </form>
                 </div>
             </div>
 
             <!-- Right Column: Metadata, SLA, History -->
             <div>
+                <div sec:authorize="hasAnyRole('ROLE_IT_SUPPORT', 'ROLE_ADMIN')" class="card">
+                    <h4 style="margin-bottom: 1rem;">Действия</h4>
+                    <form th:action="@{/tickets/{id}/update-status(id=${ticket.id})}" method="post" style="margin-bottom: 1rem;">
+                        <select name="status" style="margin-bottom: 0.5rem;">
+                            <option th:each="stat : ${allStatuses}" th:value="${stat}" th:text="${stat.displayName}" th:selected="${stat == ticket.status}"></option>
+                        </select>
+                        <textarea name="resolution" placeholder="Решение (обязательно при закрытии)" style="margin-bottom: 0.5rem; height: 60px;"></textarea>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Обновить статус</button>
+                    </form>
+                    
+                    <div sec:authorize="hasRole('ROLE_ADMIN')">
+                        <form th:action="@{/tickets/{id}/assign(id=${ticket.id})}" method="post">
+                            <select name="executorId" style="margin-bottom: 0.5rem;">
+                                <option value="">-- Снять назначение --</option>
+                                <option th:each="exec : ${executors}" th:value="${exec.id}" th:text="${exec.fullName}" th:selected="${ticket.executor != null and exec.id == ticket.executor.id}"></option>
+                            </select>
+                            <button type="submit" class="btn btn-outline" style="width: 100%;">Назначить исполнителя</button>
+                        </form>
+                    </div>
+                </div>
+
                 <div class="card">
-                    <h4>Ticket Info</h4>
+                    <h4>Инфо по заявке</h4>
                     <div style="margin-top: 1rem;">
                         <div style="margin-bottom: 1rem;">
-                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">SLA Deadline</label>
-                            <div th:text="${ticket.slaDeadline != null ? #temporals.format(ticket.slaDeadline, 'MMM dd, HH:mm') : 'None'}"
+                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Дедлайн SLA</label>
+                            <div th:text="${ticket.slaDeadline != null ? #temporals.format(ticket.slaDeadline, 'dd.MM, HH:mm') : 'Нет'}"
                                  th:style="${ticket.slaDeadline != null and ticket.slaDeadline.isBefore(T(java.time.LocalDateTime).now()) and ticket.status.name() != 'CLOSED'} ? 'color: var(--status-overdue); font-weight: bold;' : 'font-weight: 600;'"></div>
                         </div>
                         <div style="margin-bottom: 1rem;">
-                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Executor</label>
-                            <div style="font-weight: 600;" th:text="${ticket.executor != null ? ticket.executor.fullName : 'Unassigned'}"></div>
+                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Исполнитель</label>
+                            <div style="font-weight: 600;" th:text="${ticket.executor != null ? ticket.executor.fullName : 'Не назначен'}"></div>
                         </div>
                         <div>
-                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Priority Score</label>
+                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Баллы приоритета</label>
                             <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);" th:text="${ticket.priorityScore}"></div>
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h4>Activity History</h4>
+                    <h4>История активности</h4>
                     <div class="timeline" style="margin-top: 1.5rem;">
                         <div th:each="hist : ${history}" class="timeline-item">
                             <div class="timeline-dot"></div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);" th:text="${#temporals.format(hist.createdAt, 'MMM dd, HH:mm')}"></div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);" th:text="${#temporals.format(hist.createdAt, 'dd.MM, HH:mm')}"></div>
                             <div style="font-weight: 500;" th:text="${hist.user.fullName}"></div>
                             <div style="font-size: 0.875rem;" th:text="${hist.description}"></div>
                         </div>
@@ -118,6 +250,35 @@
                 </div>
             </div>
         </div>
+        
+        <script>
+            // Отключаем нативную прокрутку браузера, чтобы наш скрипт имел приоритет
+            if ('scrollRestoration' in history) {
+                history.scrollRestoration = 'manual';
+            }
+
+            document.addEventListener("DOMContentLoaded", function () {
+                // Используем pathname как ключ, чтобы прокрутка сохранялась даже при появлении query-параметров (ошибки и т.д.)
+                const scrollKey = 'scrollpos_' + window.location.pathname;
+                const scrollpos = sessionStorage.getItem(scrollKey);
+                
+                if (scrollpos) {
+                    // Небольшая задержка, чтобы элементы (картинки, вложения) успели занять место в DOM
+                    setTimeout(function() {
+                        window.scrollTo({
+                            top: parseInt(scrollpos, 10),
+                            behavior: 'instant'
+                        });
+                        sessionStorage.removeItem(scrollKey);
+                    }, 50);
+                }
+            });
+
+            window.addEventListener("beforeunload", function () {
+                const scrollKey = 'scrollpos_' + window.location.pathname;
+                sessionStorage.setItem(scrollKey, window.scrollY);
+            });
+        </script>
     </div>
 </body>
 </html>
