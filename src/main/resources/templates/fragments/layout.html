@@ -32,6 +32,11 @@
                             Новая Заявка
                         </a>
                     </li>
+                    <li class="nav-item" sec:authorize="hasRole('ROLE_ADMIN')">
+                        <a th:href="@{/admin/users}" class="nav-link">
+                            Пользователи
+                        </a>
+                    </li>
                 </ul>
             </nav>
             
