@@ -92,6 +92,14 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
+    public List<Ticket> findAllTickets(boolean includeClosed, Sort sort) {
+        if (includeClosed) {
+            return ticketRepository.findAll(sort);
+        }
+        return ticketRepository.findByStatusNot(Ticket.Status.CLOSED, sort);
+    }
+
+    @Transactional(readOnly = true)
     public Optional<Ticket> findTicketById(Integer id) {
         return ticketRepository.findById(id);
     }
@@ -101,6 +109,28 @@ public class TicketService {
         User creator = userRepository.findByUsername(creatorUsername)
                 .orElseThrow(() -> new UsernameNotFoundException("Creator user not found: " + creatorUsername));
         return ticketRepository.findByCreator(creator, sort);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Ticket> findTicketsByCreator(String creatorUsername, boolean includeClosed, Sort sort) {
+        User creator = userRepository.findByUsername(creatorUsername)
+                .orElseThrow(() -> new UsernameNotFoundException("Creator user not found: " + creatorUsername));
+        if (includeClosed) {
+            return ticketRepository.findByCreator(creator, sort);
+        }
+        return ticketRepository.findByCreatorAndStatusNot(creator, Ticket.Status.CLOSED, sort);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Ticket> findTicketsByExecutorUsername(String executorUsername, boolean includeClosed, Sort sort) {
+        if (executorUsername == null || executorUsername.trim().isEmpty()) {
+            throw new IllegalArgumentException("executorUsername is required");
+        }
+        String username = executorUsername.trim();
+        if (includeClosed) {
+            return ticketRepository.findByExecutor_Username(username, sort);
+        }
+        return ticketRepository.findByExecutor_UsernameAndStatusNot(username, Ticket.Status.CLOSED, sort);
     }
 
     @Transactional
@@ -165,6 +195,31 @@ public class TicketService {
         User updater = userRepository.findByUsername(updaterUsername).orElseThrow();
         logHistory(ticket, updater, "UNASSIGNED", "Исполнитель снят");
         return ticket;
+    }
+
+    @Transactional
+    public Optional<Ticket> autoAssignHighestPriorityTicket(String executorUsername) {
+        User executor = userRepository.findByUsername(executorUsername)
+                .orElseThrow(() -> new UsernameNotFoundException("Executor user not found: " + executorUsername));
+
+        // Find all unassigned, unresolved tickets sorted by priority (highest first)
+        List<Ticket> unassignedTickets = ticketRepository.findByExecutorIsNullAndStatusNot(Ticket.Status.CLOSED, 
+                Sort.by("priorityScore").descending());
+        
+        if (unassignedTickets.isEmpty()) {
+            return Optional.empty();
+        }
+
+        // Assign the first (highest priority) ticket
+        Ticket ticket = unassignedTickets.get(0);
+        ticket.setExecutor(executor);
+        if (ticket.getStatus() == Ticket.Status.NEW) {
+            ticket.setStatus(Ticket.Status.IN_PROGRESS);
+        }
+        ticket = ticketRepository.save(ticket);
+        
+        logHistory(ticket, executor, "ASSIGNED", "Автоматически назначена как наиболее приоритетная");
+        return Optional.of(ticket);
     }
 
     @Transactional
@@ -319,6 +374,13 @@ public class TicketService {
         } else {
             stats.setAvgResolutionTimeHours(0.0);
         }
+
+        stats.setStatusDistribution(ticketRepository.findAll().stream()
+                .collect(java.util.stream.Collectors.groupingBy(t -> t.getStatus().name(), java.util.stream.Collectors.counting())));
+        
+        stats.setCategoryDistribution(ticketRepository.findAll().stream()
+                .filter(t -> t.getCategory() != null)
+                .collect(java.util.stream.Collectors.groupingBy(t -> t.getCategory().name(), java.util.stream.Collectors.counting())));
         
         return stats;
     }

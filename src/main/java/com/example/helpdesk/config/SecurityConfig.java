@@ -22,13 +22,19 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/css/**", "/js/**", "/public/**", "/login").permitAll()
+                        .requestMatchers("/css/**", "/js/**", "/assets/**", "/index.html", "/favicon.svg", "/login", "/api/user/me").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
-                        .defaultSuccessUrl("/", true)
+                        .successHandler((request, response, authentication) -> {
+                            response.setStatus(200);
+                        })
+                        .failureHandler((request, response, exception) -> {
+                            response.setStatus(401);
+                        })
                         .permitAll()
                 )
                 .logout(logout -> logout

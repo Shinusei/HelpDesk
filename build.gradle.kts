@@ -2,6 +2,7 @@ plugins {
     java
     id("org.springframework.boot") version "4.0.4"
     id("io.spring.dependency-management") version "1.1.7"
+    id("com.github.node-gradle.node") version "7.0.2"
 }
 
 group = "com.example"
@@ -36,6 +37,7 @@ dependencies {
     compileOnly("org.projectlombok:lombok")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     runtimeOnly("org.postgresql:postgresql")
+    testRuntimeOnly("com.h2database:h2")
     annotationProcessor("org.projectlombok:lombok")
 
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
@@ -48,4 +50,32 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+node {
+    download = true
+    version = "20.11.1"
+    nodeProjectDir = file("${projectDir}/frontend")
+}
+
+val buildFrontend by tasks.registering(com.github.gradle.node.npm.task.NpmTask::class) {
+    dependsOn(tasks.npmInstall)
+    args = listOf("run", "build")
+    inputs.dir(file("frontend/src"))
+    inputs.dir(file("frontend/public"))
+    inputs.file(file("frontend/package.json"))
+    inputs.file(file("frontend/package-lock.json"))
+    outputs.dir(file("src/main/resources/static"))
+}
+
+tasks.processResources {
+    dependsOn(buildFrontend)
+}
+
+tasks.register<Delete>("cleanFrontend") {
+    delete(file("src/main/resources/static"))
+}
+
+tasks.clean {
+    dependsOn("cleanFrontend")
 }
