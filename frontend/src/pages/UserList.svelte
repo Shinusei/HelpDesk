@@ -7,7 +7,8 @@
 
     const usersQuery = createQuery({
         queryKey: ['admin-users'],
-        queryFn: () => api.admin.users.list()
+        queryFn: () => api.admin.users.list(),
+        refetchInterval: 10000, // Refresh every 10 seconds
     });
 
     const deleteMutation = createMutation({
@@ -23,23 +24,23 @@
 </script>
 
 <div class="space-y-8">
-    <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex justify-between items-center">
+    <div class="bg-white p-8 rounded-3xl border border-gray-100 flex justify-between items-center">
         <div>
             <h1 class="text-3xl font-black text-gray-900">Пользователи</h1>
             <p class="text-gray-500 font-medium">Управление учетными записями</p>
         </div>
-        <Link to="/admin/users/new" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-black shadow-lg shadow-indigo-100 transition-all transform hover:-translate-y-1">
+        <Link to="/admin/users/new" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-black transition-colors">
             Создать пользователя
         </Link>
     </div>
 
     {#if $usersQuery.isLoading}
-        <div class="flex flex-col items-center justify-center py-20 bg-white rounded-3xl shadow-sm">
+        <div class="flex flex-col items-center justify-center py-20 bg-white rounded-3xl">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
             <p class="text-gray-500 font-medium">Загрузка...</p>
         </div>
     {:else if $usersQuery.data}
-        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="bg-white rounded-3xl border border-gray-100 overflow-hidden">
             <table class="w-full text-left">
                 <thead class="bg-gray-50 border-b border-gray-100">
                     <tr>

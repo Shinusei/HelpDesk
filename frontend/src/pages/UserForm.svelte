@@ -115,7 +115,7 @@
                 <button 
                     type="submit" 
                     disabled={$mutation.isPending}
-                    class="grow bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl shadow-lg shadow-indigo-100 transform transition-all hover:-translate-y-0.5 disabled:opacity-50"
+                    class="grow bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl transition-colors disabled:opacity-50"
                 >
                     {$mutation.isPending ? 'Сохранение...' : 'Сохранить'}
                 </button>

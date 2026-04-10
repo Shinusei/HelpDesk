@@ -1,5 +1,6 @@
 package com.example.helpdesk.service;
 
+import com.example.helpdesk.domain.PriorityParameter;
 import com.example.helpdesk.domain.PriorityWeight;
 import com.example.helpdesk.repository.PriorityWeightRepository;
 import org.springframework.stereotype.Service;
@@ -41,5 +42,43 @@ public class PriorityWeightService {
     @Transactional
     public void deletePriorityWeight(Integer id) {
         priorityWeightRepository.deleteById(id);
+    }
+
+    @Transactional
+    public List<PriorityWeight> resetToDefaults() {
+        // Базовые значения весов
+        double[] defaultWeights = {
+            1.0,  // IMPORTANCE
+            4.0,  // NEWER_UNRESOLVED_TICKETS
+            3.0,  // URGENCY
+            2.0,  // IMPACT
+            0.5,  // CATEGORY
+            0.5,  // CREATOR_ROLE
+            1.5   // WAITING_HOURS
+        };
+
+        PriorityParameter[] params = PriorityParameter.values();
+        
+        for (int i = 0; i < params.length && i < defaultWeights.length; i++) {
+            final int index = i;
+            PriorityParameter param = params[index];
+            Optional<PriorityWeight> existing = priorityWeightRepository.findByParamName(param);
+            
+            PriorityWeight weight;
+            if (existing.isPresent()) {
+                weight = existing.get();
+            } else {
+                weight = new PriorityWeight();
+                weight.setParamName(param);
+            }
+            
+            weight.setWeightValue(defaultWeights[index]);
+            weight.setDescription(null);
+            weight.setUpdatedAt(LocalDateTime.now());
+            priorityWeightRepository.save(weight);
+        }
+        
+        ticketService.recalculateAllPriorities();
+        return findAllPriorityWeights();
     }
 }

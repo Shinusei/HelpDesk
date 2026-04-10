@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin/dashboard")
-@PreAuthorize("hasAnyRole('ROLE_IT_SUPPORT', 'ROLE_ADMIN')")
+@PreAuthorize("hasAnyAuthority('ROLE_IT_SUPPORT', 'ROLE_ADMIN')")
 public class DashboardRestController {
 
     private final TicketService ticketService;

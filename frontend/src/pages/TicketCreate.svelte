@@ -179,7 +179,7 @@
                                 <!-- Remove button -->
                                 <button type="button"
                                         on:click|stopPropagation={() => removeFile(i)}
-                                        class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow">
+                                        class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" />
                                     </svg>
@@ -197,7 +197,7 @@
                     Отмена
                 </button>
                 <button type="submit" disabled={$createMutationObj.isPending}
-                        class="grow bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl shadow-lg shadow-indigo-100 transform transition-all hover:-translate-y-0.5 disabled:opacity-50">
+                        class="grow bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl transition-colors disabled:opacity-50">
                     {#if $createMutationObj.isPending}
                         <span class="flex items-center justify-center gap-2">
                             <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">

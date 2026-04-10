@@ -13,6 +13,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import java.io.IOException;
 import java.util.List;
@@ -30,6 +32,7 @@ public class TicketRestController {
 
     @GetMapping
     public List<TicketDto> listTickets(Authentication authentication,
+                                      @RequestParam(name = "includeClosed", defaultValue = "true") boolean includeClosed,
                                       @RequestParam(name = "sort", defaultValue = "priorityScore") String sort,
                                       @RequestParam(name = "dir", defaultValue = "desc") String dir) {
         String username = authentication.getName();
@@ -40,12 +43,25 @@ public class TicketRestController {
 
         List<Ticket> tickets;
         if (isEmployee) {
-            tickets = ticketService.findTicketsByCreator(username, sortObj);
+            tickets = ticketService.findTicketsByCreator(username, includeClosed, sortObj);
         } else {
-            tickets = ticketService.findAllTickets(sortObj);
+            tickets = ticketService.findAllTickets(includeClosed, sortObj);
         }
 
         return tickets.stream().map(this::mapToDto).collect(Collectors.toList());
+    }
+
+    @GetMapping("/assigned-to-me")
+    @PreAuthorize("hasAnyAuthority('ROLE_IT_SUPPORT', 'ROLE_ADMIN')")
+    public List<TicketDto> listAssignedToMe(Authentication authentication,
+                                            @RequestParam(name = "includeClosed", defaultValue = "false") boolean includeClosed,
+                                            @RequestParam(name = "sort", defaultValue = "priorityScore") String sort,
+                                            @RequestParam(name = "dir", defaultValue = "desc") String dir) {
+        Sort sortObj = dir.equalsIgnoreCase("asc") ? Sort.by(sort).ascending() : Sort.by(sort).descending();
+        return ticketService.findTicketsByExecutorUsername(authentication.getName(), includeClosed, sortObj)
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
@@ -114,10 +130,33 @@ public class TicketRestController {
     }
 
     @PatchMapping("/{id}/assign-to-me")
-    @PreAuthorize("hasAnyRole('ROLE_IT_SUPPORT', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_IT_SUPPORT', 'ROLE_ADMIN')")
     public TicketDto assignToMe(@PathVariable("id") Integer id, Authentication authentication) {
         Ticket ticket = ticketService.assignTicket(id, authentication.getName(), authentication.getName());
         return mapToDto(ticket);
+    }
+
+    @PostMapping("/auto-assign")
+    @PreAuthorize("hasAnyAuthority('ROLE_IT_SUPPORT', 'ROLE_ADMIN')")
+    public ResponseEntity<?> autoAssignHighestPriority(Authentication authentication) {
+        return ticketService.autoAssignHighestPriorityTicket(authentication.getName())
+                .map(ticket -> ResponseEntity.ok(mapToDto(ticket)))
+                .orElse(ResponseEntity.noContent().build());
+    }
+
+    @PatchMapping("/{id}/unassign-me")
+    @PreAuthorize("hasAnyAuthority('ROLE_IT_SUPPORT', 'ROLE_ADMIN')")
+    public TicketDto unassignMe(@PathVariable("id") Integer id, Authentication authentication) {
+        Ticket ticket = ticketService.findTicketById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found: " + id));
+        if (ticket.getExecutor() == null || ticket.getExecutor().getUsername() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ticket has no executor");
+        }
+        if (!ticket.getExecutor().getUsername().equals(authentication.getName())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can unassign only yourself");
+        }
+        Ticket updated = ticketService.unassignTicket(id, authentication.getName());
+        return mapToDto(updated);
     }
 
     // --- Attachment Endpoints ---
@@ -181,7 +220,9 @@ public class TicketRestController {
                 .category(ticket.getCategory() != null ? ticket.getCategory().name() : null)
                 .priorityScore(ticket.getPriorityScore())
                 .status(ticket.getStatus())
+                .creatorUsername(ticket.getCreator() != null ? ticket.getCreator().getUsername() : null)
                 .creatorName(ticket.getCreator().getFullName())
+                .executorUsername(ticket.getExecutor() != null ? ticket.getExecutor().getUsername() : null)
                 .executorName(ticket.getExecutor() != null ? ticket.getExecutor().getFullName() : "Не назначен")
                 .resolution(ticket.getResolution())
                 .createdAt(ticket.getCreatedAt())

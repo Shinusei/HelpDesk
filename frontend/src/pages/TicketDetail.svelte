@@ -12,10 +12,12 @@
     const ticketQuery = createQuery({
         queryKey: ['ticket', ticketId],
         queryFn: () => api.tickets.get(ticketId),
+        refetchInterval: 5000, // Refresh every 5 seconds
     });
     const commentsQuery = createQuery({
         queryKey: ['comments', ticketId],
         queryFn: () => api.tickets.getComments(ticketId),
+        refetchInterval: 5000, // Refresh every 5 seconds
     });
 
     const statusMutation = createMutation({
@@ -32,6 +34,25 @@
     });
     const assignMutation = createMutation({
         mutationFn: () => api.tickets.assignToMe(ticketId),
+        onSuccess: () => queryClient.invalidateQueries(['ticket', ticketId])
+    });
+    const unassignMutation = createMutation({
+        mutationFn: () => api.tickets.unassignMe(ticketId),
+        onSuccess: () => queryClient.invalidateQueries(['ticket', ticketId])
+    });
+
+    const supportUsersQuery = createQuery({
+        queryKey: ['admin', 'users', 'it-support'],
+        queryFn: async () => {
+            const users = await api.admin.users.list();
+            return (users || []).filter(u => u.role === 'ROLE_IT_SUPPORT');
+        },
+        enabled: user?.role === 'ROLE_ADMIN',
+    });
+
+    let selectedSupportUsername = '';
+    const adminAssignMutation = createMutation({
+        mutationFn: () => api.admin.tickets.assignSupport(ticketId, selectedSupportUsername),
         onSuccess: () => queryClient.invalidateQueries(['ticket', ticketId])
     });
     const uploadMutation = createMutation({
@@ -87,6 +108,7 @@
 
     $: isSupport = user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_IT_SUPPORT';
     $: isRegularUser = !isSupport;
+    $: isExecutor = !!user?.username && $ticketQuery.data?.executorUsername === user.username;
 </script>
 
 <!-- ─── Lightbox ──────────────────────────────────────────────────────────── -->
@@ -116,6 +138,13 @@
         {:else if $ticketQuery.data}
             <!-- Header -->
             <div class="p-8 border-b border-gray-100 bg-gradient-to-br from-indigo-50/50 to-white">
+                <div class="flex items-start gap-4 mb-6">
+                    <button onclick="history.back()" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0" title="Вернуться назад">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                </div>
                 <div class="flex flex-col md:flex-row justify-between gap-6 items-start">
                     <div class="space-y-3 max-w-2xl">
                         <div class="flex flex-wrap gap-2 items-center">
@@ -133,18 +162,46 @@
                     <div class="flex flex-wrap gap-3 shrink-0">
                         {#if $ticketQuery.data.status !== 'CLOSED'}
                             <button on:click={() => handleUpdateStatus('CLOSED')}
-                                    class="bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-red-100 transition-all transform hover:-translate-y-0.5">
+                                    class="bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-colors">
                                 Закрыть
                             </button>
                         {/if}
                         {#if isSupport && $ticketQuery.data.status === 'NEW'}
                             <button on:click={() => $assignMutation.mutate()} disabled={$assignMutation.isPending}
-                                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 transition-all transform hover:-translate-y-0.5 disabled:opacity-50">
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-50">
                                 Взять в работу
+                            </button>
+                        {/if}
+                        {#if isSupport && isExecutor && $ticketQuery.data.status !== 'CLOSED'}
+                            <button on:click={() => $unassignMutation.mutate()} disabled={$unassignMutation.isPending}
+                                    class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-5 py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-50">
+                                Открепиться
                             </button>
                         {/if}
                     </div>
                 </div>
+
+                {#if user?.role === 'ROLE_ADMIN' && $ticketQuery.data.status !== 'CLOSED'}
+                    <div class="mt-6 flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+                        <div class="w-full sm:w-80">
+                            <label for="support-user-select" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Назначить IT Support</label>
+                            <select id="support-user-select" bind:value={selectedSupportUsername}
+                                    class="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none">
+                                <option value="" disabled>Выберите сотрудника...</option>
+                                {#if $supportUsersQuery.data}
+                                    {#each $supportUsersQuery.data as u}
+                                        <option value={u.username}>{u.fullName} ({u.username})</option>
+                                    {/each}
+                                {/if}
+                            </select>
+                        </div>
+                        <button on:click={() => $adminAssignMutation.mutate()}
+                                disabled={!selectedSupportUsername || $adminAssignMutation.isPending}
+                                class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all">
+                            {$adminAssignMutation.isPending ? 'Назначение...' : 'Назначить'}
+                        </button>
+                    </div>
+                {/if}
             </div>
 
             <!-- Body -->
@@ -185,7 +242,7 @@
                                             </svg>
                                         </div>
                                         <button on:click|stopPropagation={() => confirmDeleteAttachment(att.id, att.fileName)}
-                                                class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow">
+                                                class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" />
                                             </svg>
@@ -241,7 +298,7 @@
                                 {#if uploadFile}
                                     <span class="text-sm text-gray-600 font-medium">{uploadFile.name}</span>
                                     <button on:click={handleUpload} disabled={$uploadMutation.isPending}
-                                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-black disabled:opacity-50 transition-colors shadow-lg shadow-indigo-100">
+                                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-black disabled:opacity-50 transition-colors">
                                         {$uploadMutation.isPending ? 'Загрузка...' : 'Загрузить'}
                                     </button>
                                 {/if}
@@ -374,7 +431,7 @@
 
                     <button on:click={() => $commentMutation.mutate({ text: newComment, files: commentFiles })}
                             disabled={!newComment.trim() || $commentMutation.isPending}
-                            class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-100">
+                            class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all">
                         {$commentMutation.isPending ? 'Отправка...' : commentFiles.length > 0 ? `Отправить + ${commentFiles.length} файл(а)` : 'Отправить'}
                     </button>
                 </div>
@@ -400,7 +457,7 @@
             <div class="flex gap-4 justify-end">
                 <button on:click={() => showResolutionModal = false} class="px-6 py-2 text-gray-500 font-bold hover:text-gray-700">Отмена</button>
                 <button on:click={submitResolution} disabled={!resolutionText.trim()}
-                        class="bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-8 py-2.5 rounded-xl font-bold shadow-lg shadow-red-100 transition-all">
+                        class="bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-8 py-2.5 rounded-xl font-bold transition-all">
                     Закрыть заявку
                 </button>
             </div>

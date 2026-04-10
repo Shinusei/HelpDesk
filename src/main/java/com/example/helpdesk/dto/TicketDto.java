@@ -19,7 +19,9 @@ public class TicketDto {
     private String category;
     private Double priorityScore;
     private Ticket.Status status;
+    private String creatorUsername;
     private String creatorName;
+    private String executorUsername;
     private String executorName;
     private String resolution;
     private LocalDateTime createdAt;
