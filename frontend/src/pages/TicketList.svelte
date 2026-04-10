@@ -45,7 +45,7 @@
     ];
 
     // Regular users (EMPLOYEE / VIP / USER) should not see priority scores
-    $: isRegularUser = user?.role === 'ROLE_EMPLOYEE' || user?.role === 'EMPLOYEE' || user?.role === 'VIP' || user?.role === 'ROLE_VIP';
+    $: isRegularUser = user?.role === 'ROLE_EMPLOYEE' || user?.role === 'ROLE_VIP' || user?.role === 'ROLE_USER';
 
     function toggleSort(field) {
         if (sort === field) {

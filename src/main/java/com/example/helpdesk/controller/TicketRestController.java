@@ -146,6 +146,19 @@ public class TicketRestController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping(value = "/{id}/comments/{commentId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public AttachmentDto uploadCommentAttachment(@PathVariable("id") Integer ticketId,
+                                                @PathVariable("commentId") Integer commentId,
+                                                @RequestParam("file") MultipartFile file,
+                                                Authentication authentication) throws IOException {
+        com.example.helpdesk.domain.TicketComment comment = ticketService.getComments(
+                ticketService.findTicketById(ticketId).orElseThrow()
+        ).stream().filter(c -> c.getId().equals(commentId)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Comment not found: " + commentId));
+        TicketAttachment attachment = ticketService.addCommentAttachment(ticketId, file, authentication.getName(), comment);
+        return mapAttachment(attachment);
+    }
+
     // --- Mapping helpers ---
 
     private AttachmentDto mapAttachment(TicketAttachment a) {

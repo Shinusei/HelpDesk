@@ -48,7 +48,17 @@ export const api = {
             const response = await fetch(`${BASE_URL}/tickets/${ticketId}/attachments`, {
                 method: 'POST',
                 body: formData
-                // Do NOT set Content-Type; browser sets it with boundary for multipart
+            });
+            if (!response.ok) throw new Error('Upload failed');
+            return response.json();
+        },
+
+        uploadCommentAttachment: async (ticketId, commentId, file) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await fetch(`${BASE_URL}/tickets/${ticketId}/comments/${commentId}/attachments`, {
+                method: 'POST',
+                body: formData
             });
             if (!response.ok) throw new Error('Upload failed');
             return response.json();

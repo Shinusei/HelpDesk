@@ -60,10 +60,10 @@
             <div class="flex items-center gap-5 text-sm font-bold uppercase tracking-widest">
               <Link to="/tickets" class="hover:text-indigo-200 transition-colors">Заявки</Link>
               
-              {#if user.role === 'ADMIN' || user.role === 'IT_SUPPORT'}
+              {#if user.role === 'ROLE_ADMIN' || user.role === 'ROLE_IT_SUPPORT'}
                 <div class="h-4 w-px bg-indigo-500 mx-2"></div>
-                <Link to="/admin" class="hover:text-indigo-200 transition-colors border-b-2 border-transparent hover:border-indigo-400">Статистика</Link>
-                {#if user.role === 'ADMIN'}
+                <Link to="/admin" class="hover:text-indigo-200 transition-colors border-b-2 border-transparent hover:border-indigo-400">Аналитика</Link>
+                {#if user.role === 'ROLE_ADMIN'}
                   <Link to="/admin/users" class="hover:text-indigo-200 transition-colors border-b-2 border-transparent hover:border-indigo-400">Пользователи</Link>
                   <Link to="/admin/priority" class="hover:text-indigo-200 transition-colors border-b-2 border-transparent hover:border-indigo-400">Настройки</Link>
                 {/if}

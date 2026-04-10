@@ -8,11 +8,11 @@
     const ticketId = params.id;
     const queryClient = useQueryClient();
 
+    // ─── Queries & Mutations ──────────────────────────────────────────────────
     const ticketQuery = createQuery({
         queryKey: ['ticket', ticketId],
         queryFn: () => api.tickets.get(ticketId),
     });
-
     const commentsQuery = createQuery({
         queryKey: ['comments', ticketId],
         queryFn: () => api.tickets.getComments(ticketId),
@@ -20,97 +20,94 @@
 
     const statusMutation = createMutation({
         mutationFn: ({ status, resolution }) => api.tickets.updateStatus(ticketId, status, resolution),
-        onSuccess: () => {
-            queryClient.invalidateQueries(['ticket', ticketId]);
-            showResolutionModal = false;
-        }
+        onSuccess: () => { queryClient.invalidateQueries(['ticket', ticketId]); showResolutionModal = false; }
     });
-
     const commentMutation = createMutation({
-        mutationFn: (text) => api.tickets.addComment(ticketId, text),
-        onSuccess: () => {
-            queryClient.invalidateQueries(['comments', ticketId]);
-            newComment = '';
-        }
+        mutationFn: async ({ text, files }) => {
+            const comment = await api.tickets.addComment(ticketId, text);
+            for (const f of files) await api.tickets.uploadCommentAttachment(ticketId, comment.id, f);
+            return comment;
+        },
+        onSuccess: () => { queryClient.invalidateQueries(['comments', ticketId]); newComment = ''; commentFiles = []; }
     });
-
     const assignMutation = createMutation({
         mutationFn: () => api.tickets.assignToMe(ticketId),
         onSuccess: () => queryClient.invalidateQueries(['ticket', ticketId])
     });
-
     const uploadMutation = createMutation({
         mutationFn: (file) => api.tickets.uploadAttachment(ticketId, file),
-        onSuccess: () => {
-            queryClient.invalidateQueries(['ticket', ticketId]);
-            uploadFile = null;
-        }
+        onSuccess: () => { queryClient.invalidateQueries(['ticket', ticketId]); uploadFile = null; }
     });
-
     const deleteAttachmentMutation = createMutation({
-        mutationFn: (attachmentId) => api.tickets.deleteAttachment(attachmentId),
+        mutationFn: (id) => api.tickets.deleteAttachment(id),
         onSuccess: () => queryClient.invalidateQueries(['ticket', ticketId])
     });
 
+    // ─── State ────────────────────────────────────────────────────────────────
     let newComment = '';
+    let commentFiles = [];
+    let commentFileInput;
     let showResolutionModal = false;
     let resolutionText = '';
     let uploadFile = null;
+    let lightboxSrc = null;    // opened image URL for fullscreen modal
 
-    const statusMap = {
-        'NEW': 'Новый',
-        'IN_PROGRESS': 'В работе',
-        'CLOSED': 'Закрыт'
-    };
-
+    const statusMap = { NEW: 'Новый', IN_PROGRESS: 'В работе', CLOSED: 'Закрыт' };
     const labelMap = {
-        urgency: { LOW: 'Низкая', MEDIUM: 'Средняя', HIGH: 'Высокая', CRITICAL: 'Критическая' },
+        urgency:    { LOW: 'Низкая', MEDIUM: 'Средняя', HIGH: 'Высокая', CRITICAL: 'Критическая' },
         importance: { LOW: 'Низкая', MEDIUM: 'Средняя', HIGH: 'Высокая', CRITICAL: 'Критическая' },
-        impact: { USER: 'Пользователь', DEPARTMENT: 'Отдел', ORGANIZATION: 'Организация' },
-        category: { HARDWARE: 'Оборудование', SOFTWARE: 'ПО', NETWORK: 'Сеть', ACCESS: 'Доступ', OTHER: 'Прочее' },
+        impact:     { USER: 'Пользователь', DEPARTMENT: 'Отдел', ORGANIZATION: 'Организация' },
+        category:   { HARDWARE: 'Оборудование', SOFTWARE: 'ПО', NETWORK: 'Сеть', ACCESS: 'Доступ', OTHER: 'Прочее' },
     };
 
     function handleUpdateStatus(status) {
-        if (status === 'CLOSED') {
-            showResolutionModal = true;
-        } else {
-            $statusMutation.mutate({ status });
-        }
+        status === 'CLOSED' ? (showResolutionModal = true) : $statusMutation.mutate({ status });
     }
-
     function submitResolution() {
-        if (resolutionText.trim()) {
-            $statusMutation.mutate({ status: 'CLOSED', resolution: resolutionText });
-        }
+        if (resolutionText.trim()) $statusMutation.mutate({ status: 'CLOSED', resolution: resolutionText });
     }
-
-    function handleFileSelect(event) {
-        uploadFile = event.target.files[0] || null;
+    function handleCommentFileSelect(e) {
+        commentFiles = [...commentFiles, ...Array.from(e.target.files)];
+        e.target.value = '';
     }
-
-    function handleUpload() {
-        if (uploadFile) $uploadMutation.mutate(uploadFile);
-    }
-
+    function removeCommentFile(i) { commentFiles = commentFiles.filter((_, idx) => idx !== i); }
+    function handleUpload() { if (uploadFile) $uploadMutation.mutate(uploadFile); }
     function confirmDeleteAttachment(id, name) {
-        if (confirm(`Удалить файл «${name}»?`)) {
-            $deleteAttachmentMutation.mutate(id);
-        }
+        if (confirm(`Удалить файл «${name}»?`)) $deleteAttachmentMutation.mutate(id);
     }
-
     function formatFileSize(bytes) {
+        if (!bytes) return '0 B';
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
+    function isImage(fileType) { return fileType && fileType.startsWith('image/'); }
+    function openLightbox(url) { lightboxSrc = url; }
+    function closeLightbox() { lightboxSrc = null; }
 
-    // Role helpers — use the "short" form that comes from UserDto (ADMIN, IT_SUPPORT, EMPLOYEE…)
-    $: isSupport = user?.role === 'ADMIN' || user?.role === 'IT_SUPPORT' || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_IT_SUPPORT';
+    $: isSupport = user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_IT_SUPPORT';
     $: isRegularUser = !isSupport;
 </script>
 
+<!-- ─── Lightbox ──────────────────────────────────────────────────────────── -->
+{#if lightboxSrc}
+    <div class="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4"
+         on:click={closeLightbox}
+         on:keydown={(e) => e.key === 'Escape' && closeLightbox()}
+         role="dialog" tabindex="-1">
+        <button class="absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-full bg-white/10 transition-colors" on:click={closeLightbox}>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+        <img src={lightboxSrc} alt="preview"
+             class="max-w-[92vw] max-h-[90vh] rounded-2xl shadow-2xl object-contain"
+             on:click|stopPropagation />
+    </div>
+{/if}
+
 <div class="space-y-8 pb-20">
-    <!-- Ticket Card -->
+    <!-- ─── Ticket Card ─────────────────────────────────────────────────────── -->
     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         {#if $ticketQuery.isLoading}
             <div class="flex items-center justify-center py-24">
@@ -133,8 +130,6 @@
                             &nbsp;·&nbsp; <span class="font-medium text-gray-700">Автор: {$ticketQuery.data.creatorName}</span>
                         </p>
                     </div>
-
-                    <!-- Action Buttons (support/admin only for assign) -->
                     <div class="flex flex-wrap gap-3 shrink-0">
                         {#if $ticketQuery.data.status !== 'CLOSED'}
                             <button on:click={() => handleUpdateStatus('CLOSED')}
@@ -143,8 +138,7 @@
                             </button>
                         {/if}
                         {#if isSupport && $ticketQuery.data.status === 'NEW'}
-                            <button on:click={() => $assignMutation.mutate()}
-                                    disabled={$assignMutation.isPending}
+                            <button on:click={() => $assignMutation.mutate()} disabled={$assignMutation.isPending}
                                     class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 transition-all transform hover:-translate-y-0.5 disabled:opacity-50">
                                 Взять в работу
                             </button>
@@ -155,8 +149,8 @@
 
             <!-- Body -->
             <div class="p-8 grid grid-cols-1 lg:grid-cols-3 gap-10">
-                <!-- Description & Attachments -->
                 <div class="lg:col-span-2 space-y-8">
+                    <!-- Description -->
                     <section>
                         <h4 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Описание</h4>
                         <div class="text-gray-700 leading-relaxed bg-gray-50 p-6 rounded-2xl border border-gray-100 whitespace-pre-wrap">
@@ -171,13 +165,40 @@
                         </section>
                     {/if}
 
-                    <!-- Attachments Section -->
+                    <!-- Ticket Attachments -->
                     <section>
                         <h4 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Вложения</h4>
 
-                        {#if $ticketQuery.data.attachments?.length > 0}
+                        <!-- Image grid -->
+                        {#if $ticketQuery.data.attachments?.some(a => isImage(a.fileType))}
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                                {#each $ticketQuery.data.attachments.filter(a => isImage(a.fileType)) as att}
+                                    <div class="relative group rounded-xl overflow-hidden border border-gray-100 cursor-pointer"
+                                         on:click={() => openLightbox(api.tickets.downloadAttachmentUrl(att.id))}
+                                         on:keydown={(e) => e.key === 'Enter' && openLightbox(api.tickets.downloadAttachmentUrl(att.id))}
+                                         role="button" tabindex="0">
+                                        <img src={api.tickets.downloadAttachmentUrl(att.id)} alt={att.fileName}
+                                             class="w-full h-36 object-cover group-hover:scale-105 transition-transform duration-300" />
+                                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                            </svg>
+                                        </div>
+                                        <button on:click|stopPropagation={() => confirmDeleteAttachment(att.id, att.fileName)}
+                                                class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                {/each}
+                            </div>
+                        {/if}
+
+                        <!-- File list (non-images) -->
+                        {#if $ticketQuery.data.attachments?.some(a => !isImage(a.fileType))}
                             <div class="space-y-2 mb-4">
-                                {#each $ticketQuery.data.attachments as att}
+                                {#each $ticketQuery.data.attachments.filter(a => !isImage(a.fileType)) as att}
                                     <div class="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100 group">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -186,17 +207,14 @@
                                             <p class="text-sm font-bold text-gray-800 truncate">{att.fileName}</p>
                                             <p class="text-xs text-gray-400">{formatFileSize(att.fileSize)}</p>
                                         </div>
-                                        <a href={api.tickets.downloadAttachmentUrl(att.id)}
-                                           download={att.fileName}
-                                           class="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors shrink-0"
-                                           title="Скачать">
+                                        <a href={api.tickets.downloadAttachmentUrl(att.id)} download={att.fileName}
+                                           class="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors shrink-0">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                             </svg>
                                         </a>
                                         <button on:click={() => confirmDeleteAttachment(att.id, att.fileName)}
-                                                class="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 shrink-0"
-                                                title="Удалить">
+                                                class="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 shrink-0">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                             </svg>
@@ -204,25 +222,27 @@
                                     </div>
                                 {/each}
                             </div>
-                        {:else}
+                        {/if}
+
+                        {#if !$ticketQuery.data.attachments?.length}
                             <p class="text-sm text-gray-400 mb-4">Вложений нет</p>
                         {/if}
 
-                        <!-- Upload -->
+                        <!-- Upload new file -->
                         {#if $ticketQuery.data.status !== 'CLOSED'}
-                            <div class="flex gap-3 items-center">
+                            <div class="flex gap-3 items-center flex-wrap">
                                 <label for="file-upload" class="cursor-pointer flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                                     </svg>
-                                    Выбрать файл
+                                    Прикрепить файл
                                 </label>
-                                <input id="file-upload" type="file" class="hidden" on:change={handleFileSelect} />
+                                <input id="file-upload" type="file" class="hidden" on:change={(e) => { uploadFile = e.target.files[0]; e.target.value=''; }} />
                                 {#if uploadFile}
-                                    <span class="text-sm text-gray-600 font-medium truncate max-w-xs">{uploadFile.name}</span>
+                                    <span class="text-sm text-gray-600 font-medium">{uploadFile.name}</span>
                                     <button on:click={handleUpload} disabled={$uploadMutation.isPending}
                                             class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-black disabled:opacity-50 transition-colors shadow-lg shadow-indigo-100">
-                                        {$uploadMutation.isPending ? 'Загрузка...' : 'Прикрепить'}
+                                        {$uploadMutation.isPending ? 'Загрузка...' : 'Загрузить'}
                                     </button>
                                 {/if}
                             </div>
@@ -233,34 +253,20 @@
                 <!-- Parameters Sidebar -->
                 <div class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 space-y-6 self-start">
                     <h4 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Параметры</h4>
-
-                    <!-- Priority — hidden for regular users -->
                     {#if !isRegularUser}
                         <div>
-                            <span class="block text-xs font-bold text-gray-500 uppercase mb-1">Приоритет</span>
+                            <span class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Приоритет</span>
                             <span class="text-2xl font-black {getPriorityColor($ticketQuery.data.priorityScore)}">{$ticketQuery.data.priorityScore?.toFixed(2)}</span>
                         </div>
                     {/if}
-
                     <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <span class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Срочность</span>
-                            <span class="text-sm font-bold">{labelMap.urgency[$ticketQuery.data.urgency] || $ticketQuery.data.urgency}</span>
-                        </div>
-                        <div>
-                            <span class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Важность</span>
-                            <span class="text-sm font-bold">{labelMap.importance[$ticketQuery.data.importance] || $ticketQuery.data.importance}</span>
-                        </div>
-                        <div>
-                            <span class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Влияние</span>
-                            <span class="text-sm font-bold">{labelMap.impact[$ticketQuery.data.impact] || $ticketQuery.data.impact}</span>
-                        </div>
-                        <div>
-                            <span class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Категория</span>
-                            <span class="text-sm font-bold">{labelMap.category[$ticketQuery.data.category] || $ticketQuery.data.category}</span>
-                        </div>
+                        {#each [['urgency','Срочность'],['importance','Важность'],['impact','Влияние'],['category','Категория']] as [k,lbl]}
+                            <div>
+                                <span class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{lbl}</span>
+                                <span class="text-sm font-bold">{labelMap[k]?.[$ticketQuery.data[k]] || $ticketQuery.data[k]}</span>
+                            </div>
+                        {/each}
                     </div>
-
                     <div>
                         <span class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Исполнитель</span>
                         <span class="text-sm font-medium text-indigo-600">{$ticketQuery.data.executorName}</span>
@@ -276,13 +282,16 @@
         {/if}
     </div>
 
-    <!-- Comments Section -->
+    <!-- ─── Comments ──────────────────────────────────────────────────────────── -->
     <div class="space-y-6">
         <h3 class="text-xl font-black text-gray-800 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
             Комментарии
+            {#if $commentsQuery.data?.length}
+                <span class="text-sm font-bold text-gray-400">({$commentsQuery.data.length})</span>
+            {/if}
         </h3>
 
         <div class="space-y-4">
@@ -292,17 +301,33 @@
                         <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg shrink-0">
                             {comment.authorName?.[0]}
                         </div>
-                        <div class="space-y-2 flex-grow min-w-0">
+                        <div class="space-y-3 flex-grow min-w-0">
                             <div class="flex justify-between items-center">
                                 <span class="font-bold text-indigo-600 text-sm">{comment.authorName}</span>
                                 <span class="text-xs text-gray-400">{formatDate(comment.createdAt)}</span>
                             </div>
                             <p class="text-gray-700 leading-relaxed text-sm whitespace-pre-wrap">{comment.text}</p>
 
-                            <!-- Comment Attachments -->
-                            {#if comment.attachments?.length > 0}
-                                <div class="flex flex-wrap gap-2 pt-2">
-                                    {#each comment.attachments as att}
+                            <!-- Comment image grid -->
+                            {#if comment.attachments?.some(a => isImage(a.fileType))}
+                                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                    {#each comment.attachments.filter(a => isImage(a.fileType)) as att}
+                                        <div class="relative group rounded-lg overflow-hidden border border-gray-100 cursor-pointer"
+                                             on:click={() => openLightbox(api.tickets.downloadAttachmentUrl(att.id))}
+                                             on:keydown={(e) => e.key === 'Enter' && openLightbox(api.tickets.downloadAttachmentUrl(att.id))}
+                                             role="button" tabindex="0">
+                                            <img src={api.tickets.downloadAttachmentUrl(att.id)} alt={att.fileName}
+                                                 class="w-full h-20 object-cover group-hover:scale-110 transition-transform duration-300" />
+                                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
+                                        </div>
+                                    {/each}
+                                </div>
+                            {/if}
+
+                            <!-- Comment file list (non-images) -->
+                            {#if comment.attachments?.some(a => !isImage(a.fileType))}
+                                <div class="flex flex-wrap gap-2">
+                                    {#each comment.attachments.filter(a => !isImage(a.fileType)) as att}
                                         <a href={api.tickets.downloadAttachmentUrl(att.id)} download={att.fileName}
                                            class="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -320,17 +345,37 @@
 
             <!-- New Comment -->
             <div class="bg-indigo-50/30 p-6 rounded-2xl border border-indigo-100">
-                <textarea
-                    bind:value={newComment}
-                    placeholder="Напишите комментарий..."
-                    class="w-full bg-white border border-indigo-100 rounded-xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all h-32 resize-none"
-                ></textarea>
-                <div class="flex justify-end mt-4">
-                    <button
-                        on:click={() => $commentMutation.mutate(newComment)}
-                        disabled={!newComment.trim() || $commentMutation.isPending}
-                        class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-100">
-                        {$commentMutation.isPending ? 'Отправка...' : 'Отправить'}
+                <textarea bind:value={newComment} placeholder="Напишите комментарий..."
+                          class="w-full bg-white border border-indigo-100 rounded-xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all h-28 resize-none"></textarea>
+
+                <!-- Comment file previews -->
+                {#if commentFiles.length > 0}
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        {#each commentFiles as file, i}
+                            <div class="flex items-center gap-2 bg-white border border-indigo-100 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-700">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                </svg>
+                                {file.name}
+                                <button type="button" on:click={() => removeCommentFile(i)} class="text-red-400 hover:text-red-600 ml-1">✕</button>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+
+                <div class="flex justify-between items-center mt-4">
+                    <label class="cursor-pointer flex items-center gap-2 text-gray-400 hover:text-indigo-600 text-sm font-bold transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                        Прикрепить файл
+                        <input bind:this={commentFileInput} type="file" class="hidden" multiple on:change={handleCommentFileSelect} />
+                    </label>
+
+                    <button on:click={() => $commentMutation.mutate({ text: newComment, files: commentFiles })}
+                            disabled={!newComment.trim() || $commentMutation.isPending}
+                            class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-100">
+                        {$commentMutation.isPending ? 'Отправка...' : commentFiles.length > 0 ? `Отправить + ${commentFiles.length} файл(а)` : 'Отправить'}
                     </button>
                 </div>
             </div>
@@ -349,10 +394,9 @@
                 </svg>
                 <p class="text-sm text-blue-700">Пожалуйста, опишите принятое решение для закрытия заявки.</p>
             </div>
-            <textarea
-                bind:value={resolutionText}
-                class="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none"
-                placeholder="Текст решения..."></textarea>
+            <textarea bind:value={resolutionText}
+                      class="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none"
+                      placeholder="Текст решения..."></textarea>
             <div class="flex gap-4 justify-end">
                 <button on:click={() => showResolutionModal = false} class="px-6 py-2 text-gray-500 font-bold hover:text-gray-700">Отмена</button>
                 <button on:click={submitResolution} disabled={!resolutionText.trim()}
