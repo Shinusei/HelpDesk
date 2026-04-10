@@ -35,3 +35,12 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Node.js (Frontend) ###
+frontend/node_modules/
+frontend/dist/
+.gradle/nodejs/
+
+### Generated Frontend Build Output ###
+# Produced by `./gradlew build`. Never commit — rebuilt on every build.
+src/main/resources/static/

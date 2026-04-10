@@ -319,6 +319,13 @@ public class TicketService {
         } else {
             stats.setAvgResolutionTimeHours(0.0);
         }
+
+        stats.setStatusDistribution(ticketRepository.findAll().stream()
+                .collect(java.util.stream.Collectors.groupingBy(t -> t.getStatus().name(), java.util.stream.Collectors.counting())));
+        
+        stats.setCategoryDistribution(ticketRepository.findAll().stream()
+                .filter(t -> t.getCategory() != null)
+                .collect(java.util.stream.Collectors.groupingBy(t -> t.getCategory().name(), java.util.stream.Collectors.counting())));
         
         return stats;
     }
