@@ -5,8 +5,8 @@ set -euo pipefail
 # Usage: ./scripts/seed-tickets.sh [server_url] [username] [password]
 
 SERVER_URL=${1:-http://localhost:8080}
-USERNAME=${2:-admin}
-PASSWORD=${3:-admin}
+USERNAME=${2:-user}
+PASSWORD=${3:-user}
 COOKIE_JAR=".seed_cookies.txt"
 
 echo "Server: $SERVER_URL"
