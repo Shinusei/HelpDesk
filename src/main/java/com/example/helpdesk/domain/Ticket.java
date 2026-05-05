@@ -5,6 +5,9 @@ import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 
 @Entity
 @Table(name = "tickets")
@@ -63,6 +66,9 @@ public class Ticket {
 
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
+
+    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TicketDynamicValue> dynamicValues = new ArrayList<>();
 
     public enum Status {
         NEW("Новый"),

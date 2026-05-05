@@ -13,6 +13,8 @@ public class PriorityWeightDto {
     private String displayName;
     private Double weightValue;
     private String description;
+    @com.fasterxml.jackson.annotation.JsonProperty("active")
+    private Boolean active;
     private LocalDateTime updatedAt;
 }
 

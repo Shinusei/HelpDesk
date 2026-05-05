@@ -107,6 +107,21 @@ export const api = {
             listByParam: (paramName) => request(`/admin/parameter-values/by-param?paramName=${paramName}`),
             update: (id, data) => request(`/admin/parameter-values/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
             init: () => request('/admin/parameter-values/init', { method: 'POST' }),
+        },
+        dynamicFilters: {
+            list: () => request('/admin/dynamic-filters'),
+            create: (data) => request('/admin/dynamic-filters', { method: 'POST', body: JSON.stringify(data) }),
+            update: (id, data) => request(`/admin/dynamic-filters/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+            delete: (id) => request(`/admin/dynamic-filters/${id}`, { method: 'DELETE' }),
+            addValue: (filterId, data) => request(`/admin/dynamic-filters/${filterId}/values`, { method: 'POST', body: JSON.stringify(data) }),
+            updateValue: (valueId, data) => request(`/admin/dynamic-filters/values/${valueId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+            deleteValue: (valueId) => request(`/admin/dynamic-filters/values/${valueId}`, { method: 'DELETE' }),
         }
+    },
+    priority: {
+        list: () => request('/priority-weights'),
+    },
+    dynamicFilters: {
+        list: () => request('/dynamic-filters'),
     }
 };

@@ -1,7 +1,17 @@
 <script>
-    import { createMutation } from '@tanstack/svelte-query';
+    import { createMutation, createQuery } from '@tanstack/svelte-query';
     import { navigate } from "svelte-routing";
     import { api } from '../lib/api';
+
+    const filtersQuery = createQuery({
+        queryKey: ['dynamic-filters'],
+        queryFn: () => api.dynamicFilters.list(),
+    });
+
+    const weightsQuery = createQuery({
+        queryKey: ['priority-weights'],
+        queryFn: () => api.priority.list()
+    });
 
     let formData = {
         title: '',
@@ -9,7 +19,8 @@
         importance: 'MEDIUM',
         urgency: 'MEDIUM',
         impact: 'USER',
-        category: 'OTHER'
+        category: 'OTHER',
+        dynamicValues: {} // filterId -> valueId
     };
 
     let pendingFiles = [];
@@ -117,11 +128,15 @@
             <!-- Parameters Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {#each [
-                    { key: 'category',   label: 'Категория' },
-                    { key: 'importance', label: 'Важность' },
-                    { key: 'urgency',    label: 'Срочность' },
-                    { key: 'impact',     label: 'Влияние' },
-                ] as field}
+                    { key: 'category',   label: 'Категория', param: 'CATEGORY' },
+                    { key: 'importance', label: 'Важность',  param: 'IMPORTANCE' },
+                    { key: 'urgency',    label: 'Срочность',  param: 'URGENCY' },
+                    { key: 'impact',     label: 'Влияние',    param: 'IMPACT' },
+                ].filter(f => {
+                    if (!$weightsQuery.data) return true; // Show all while loading
+                    const w = $weightsQuery.data.find(pw => pw.paramName === f.param);
+                    return w ? w.active !== false : true;
+                }) as field}
                     <div class="space-y-1">
                         <label for={field.key} class="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">{field.label}</label>
                         <select id={field.key} bind:value={formData[field.key]}
@@ -132,6 +147,22 @@
                         </select>
                     </div>
                 {/each}
+
+                <!-- Dynamic Filters -->
+                {#if $filtersQuery.data}
+                    {#each $filtersQuery.data as filter (filter.id)}
+                        <div class="space-y-1">
+                            <label for="filter-{filter.id}" class="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">{filter.displayName}</label>
+                            <select id="filter-{filter.id}" bind:value={formData.dynamicValues[filter.id]}
+                                    class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold">
+                                <option value={undefined}>Не выбрано</option>
+                                {#each filter.values as val (val.id)}
+                                    <option value={val.id}>{val.displayName}</option>
+                                {/each}
+                            </select>
+                        </div>
+                    {/each}
+                {/if}
             </div>
 
             <!-- File Attachments -->

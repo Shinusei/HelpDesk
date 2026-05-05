@@ -54,7 +54,8 @@ tasks.withType<Test> {
 
 node {
     download = true
-    version = "20.11.1"
+    version = "22.14.0"
+    npmVersion = "11.13.0"
     nodeProjectDir = file("${projectDir}/frontend")
 }
 
