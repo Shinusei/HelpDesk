@@ -113,18 +113,22 @@
 
 <!-- ─── Lightbox ──────────────────────────────────────────────────────────── -->
 {#if lightboxSrc}
-    <div class="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4"
-         on:click={closeLightbox}
-         on:keydown={(e) => e.key === 'Escape' && closeLightbox()}
-         role="dialog" tabindex="-1">
-        <button class="absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-full bg-white/10 transition-colors" on:click={closeLightbox}>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
-        <img src={lightboxSrc} alt="preview"
-             class="max-w-[92vw] max-h-[90vh] rounded-2xl shadow-2xl object-contain"
-             on:click|stopPropagation />
+    <div class="fixed inset-0 z-[200] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <!-- Backdrop button -->
+        <button class="absolute inset-0 bg-black/90 w-full h-full border-none cursor-default" 
+                on:click={closeLightbox} 
+                aria-label="Закрыть просмотр"></button>
+        
+        <div class="relative z-[1] flex items-center justify-center">
+            <button class="absolute -top-12 right-0 text-white/70 hover:text-white p-2 rounded-full bg-white/10 transition-colors" 
+                    on:click={closeLightbox}>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <img src={lightboxSrc} alt="preview"
+                 class="max-w-[92vw] max-h-[90vh] rounded-2xl shadow-2xl object-contain border-4 border-white/10" />
+        </div>
     </div>
 {/if}
 
@@ -323,6 +327,16 @@
                                 <span class="text-sm font-bold">{labelMap[k]?.[$ticketQuery.data[k]] || $ticketQuery.data[k]}</span>
                             </div>
                         {/each}
+                        
+                        <!-- Dynamic Filters -->
+                        {#if $ticketQuery.data.dynamicValues}
+                            {#each Object.entries($ticketQuery.data.dynamicValues) as [filterName, valueName]}
+                                <div>
+                                    <span class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{filterName}</span>
+                                    <span class="text-sm font-bold">{valueName}</span>
+                                </div>
+                            {/each}
+                        {/if}
                     </div>
                     <div>
                         <span class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Исполнитель</span>

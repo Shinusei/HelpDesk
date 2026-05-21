@@ -11,6 +11,10 @@ import com.example.helpdesk.domain.TicketComment;
 import com.example.helpdesk.domain.TicketHistory;
 import com.example.helpdesk.domain.Urgency;
 import com.example.helpdesk.domain.User;
+import com.example.helpdesk.domain.DynamicFilter;
+import com.example.helpdesk.domain.DynamicFilterValue;
+import com.example.helpdesk.domain.TicketDynamicValue;
+
 import com.example.helpdesk.dto.DashboardStats;
 import com.example.helpdesk.repository.PriorityWeightRepository;
 import com.example.helpdesk.repository.TicketAttachmentRepository;
@@ -18,6 +22,9 @@ import com.example.helpdesk.repository.TicketCommentRepository;
 import com.example.helpdesk.repository.TicketHistoryRepository;
 import com.example.helpdesk.repository.TicketRepository;
 import com.example.helpdesk.repository.UserRepository;
+import com.example.helpdesk.repository.DynamicFilterRepository;
+import com.example.helpdesk.repository.DynamicFilterValueRepository;
+
 import org.springframework.http.MediaTypeFactory;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -38,18 +45,27 @@ public class TicketService {
     private final TicketHistoryRepository ticketHistoryRepository;
     private final TicketCommentRepository ticketCommentRepository;
     private final TicketAttachmentRepository ticketAttachmentRepository;
+    private final DynamicFilterRepository dynamicFilterRepository;
+    private final DynamicFilterValueRepository dynamicFilterValueRepository;
 
-    public TicketService(TicketRepository ticketRepository, UserRepository userRepository, PriorityWeightRepository priorityWeightRepository, TicketHistoryRepository ticketHistoryRepository, TicketCommentRepository ticketCommentRepository, TicketAttachmentRepository ticketAttachmentRepository) {
+    public TicketService(TicketRepository ticketRepository, UserRepository userRepository,
+            PriorityWeightRepository priorityWeightRepository, TicketHistoryRepository ticketHistoryRepository,
+            TicketCommentRepository ticketCommentRepository, TicketAttachmentRepository ticketAttachmentRepository,
+            DynamicFilterRepository dynamicFilterRepository,
+            DynamicFilterValueRepository dynamicFilterValueRepository) {
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
         this.priorityWeightRepository = priorityWeightRepository;
         this.ticketHistoryRepository = ticketHistoryRepository;
         this.ticketCommentRepository = ticketCommentRepository;
         this.ticketAttachmentRepository = ticketAttachmentRepository;
+        this.dynamicFilterRepository = dynamicFilterRepository;
+        this.dynamicFilterValueRepository = dynamicFilterValueRepository;
     }
 
     @Transactional
-    public Ticket createTicket(String title, String description, String creatorUsername, Importance importance, Urgency urgency, Impact impact, Category category) {
+    public Ticket createTicket(String title, String description, String creatorUsername, Importance importance,
+            Urgency urgency, Impact impact, Category category, java.util.Map<Integer, Integer> dynamicValues) {
         User creator = userRepository.findByUsername(creatorUsername)
                 .orElseThrow(() -> new UsernameNotFoundException("Creator user not found: " + creatorUsername));
 
@@ -64,12 +80,38 @@ public class TicketService {
         ticket.setImpact(impact);
         ticket.setCategory(category);
 
+        if (dynamicValues != null) {
+            for (java.util.Map.Entry<Integer, Integer> entry : dynamicValues.entrySet()) {
+                Integer filterId = entry.getKey();
+                Integer valueId = entry.getValue();
+
+                DynamicFilter filter = dynamicFilterRepository.findById(filterId).orElse(null);
+                DynamicFilterValue value = dynamicFilterValueRepository.findById(valueId).orElse(null);
+
+                if (filter != null && value != null) {
+                    TicketDynamicValue tdv = new TicketDynamicValue();
+                    tdv.setTicket(ticket);
+                    tdv.setFilter(filter);
+                    tdv.setValue(value);
+                    ticket.getDynamicValues().add(tdv);
+                }
+            }
+        }
+
         if (urgency != null) {
             switch (urgency) {
-                case CRITICAL: ticket.setSlaDeadline(ticket.getCreatedAt().plusHours(4)); break;
-                case HIGH: ticket.setSlaDeadline(ticket.getCreatedAt().plusHours(8)); break;
-                case MEDIUM: ticket.setSlaDeadline(ticket.getCreatedAt().plusHours(24)); break;
-                case LOW: ticket.setSlaDeadline(ticket.getCreatedAt().plusHours(72)); break;
+                case CRITICAL:
+                    ticket.setSlaDeadline(ticket.getCreatedAt().plusHours(4));
+                    break;
+                case HIGH:
+                    ticket.setSlaDeadline(ticket.getCreatedAt().plusHours(8));
+                    break;
+                case MEDIUM:
+                    ticket.setSlaDeadline(ticket.getCreatedAt().plusHours(24));
+                    break;
+                case LOW:
+                    ticket.setSlaDeadline(ticket.getCreatedAt().plusHours(72));
+                    break;
             }
         }
 
@@ -81,7 +123,7 @@ public class TicketService {
 
         ticket = ticketRepository.save(ticket);
         recalculateAllPriorities();
-        
+
         logHistory(ticket, creator, "CREATED", "Заявка создана");
         return ticket;
     }
@@ -134,10 +176,11 @@ public class TicketService {
     }
 
     @Transactional
-    public Ticket updateTicketStatus(Integer ticketId, Ticket.Status newStatus, String updaterUsername, String resolution) {
+    public Ticket updateTicketStatus(Integer ticketId, Ticket.Status newStatus, String updaterUsername,
+            String resolution) {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new IllegalArgumentException("Ticket not found with ID: " + ticketId));
-        
+
         if (newStatus == Ticket.Status.CLOSED) {
             if (resolution == null || resolution.trim().isEmpty()) {
                 throw new IllegalArgumentException("Решение обязательно при закрытии заявки.");
@@ -154,14 +197,15 @@ public class TicketService {
         Ticket.Status oldStatus = ticket.getStatus();
         ticket.setStatus(newStatus);
         ticket = ticketRepository.save(ticket);
-        
+
         if (oldStatus != newStatus && (oldStatus == Ticket.Status.CLOSED || newStatus == Ticket.Status.CLOSED)) {
             recalculateAllPriorities();
         }
-        
+
         User updater = userRepository.findByUsername(updaterUsername).orElseThrow();
-        logHistory(ticket, updater, "STATUS_CHANGED", "Статус изменен с " + oldStatus.getDisplayName() + " на " + newStatus.getDisplayName());
-        
+        logHistory(ticket, updater, "STATUS_CHANGED",
+                "Статус изменен с " + oldStatus.getDisplayName() + " на " + newStatus.getDisplayName());
+
         return ticket;
     }
 
@@ -176,7 +220,7 @@ public class TicketService {
             ticket.setStatus(Ticket.Status.IN_PROGRESS);
         }
         ticket = ticketRepository.save(ticket);
-        
+
         User assigner = userRepository.findByUsername(assignerUsername).orElseThrow();
         logHistory(ticket, assigner, "ASSIGNED", "Назначена исполнителю: " + executorUsername);
         return ticket;
@@ -191,7 +235,7 @@ public class TicketService {
             ticket.setStatus(Ticket.Status.NEW);
         }
         ticket = ticketRepository.save(ticket);
-        
+
         User updater = userRepository.findByUsername(updaterUsername).orElseThrow();
         logHistory(ticket, updater, "UNASSIGNED", "Исполнитель снят");
         return ticket;
@@ -203,9 +247,9 @@ public class TicketService {
                 .orElseThrow(() -> new UsernameNotFoundException("Executor user not found: " + executorUsername));
 
         // Find all unassigned, unresolved tickets sorted by priority (highest first)
-        List<Ticket> unassignedTickets = ticketRepository.findByExecutorIsNullAndStatusNot(Ticket.Status.CLOSED, 
+        List<Ticket> unassignedTickets = ticketRepository.findByExecutorIsNullAndStatusNot(Ticket.Status.CLOSED,
                 Sort.by("priorityScore").descending());
-        
+
         if (unassignedTickets.isEmpty()) {
             return Optional.empty();
         }
@@ -217,7 +261,7 @@ public class TicketService {
             ticket.setStatus(Ticket.Status.IN_PROGRESS);
         }
         ticket = ticketRepository.save(ticket);
-        
+
         logHistory(ticket, executor, "ASSIGNED", "Автоматически назначена как наиболее приоритетная");
         return Optional.of(ticket);
     }
@@ -252,10 +296,14 @@ public class TicketService {
 
     @Transactional(readOnly = true)
     public List<TicketComment> getComments(Ticket ticket) {
-        // Fetch comments with their attachments proactively to prevent LazyInitializationException or empty collections in Thymeleaf
+        // Fetch comments with their attachments proactively to prevent
+        // LazyInitializationException or empty collections in Thymeleaf
         List<TicketComment> comments = ticketCommentRepository.findByTicketWithAttachmentsOrderByCreatedAtAsc(ticket);
-        // Ensure collections are uniformly deduplicated or initialized, though left join fetch returns a unique root entity if we use Set, for Lists it may duplicate if multiple attachments.
-        // It's a OneToMany so List with JOIN FETCH could multiply the comment instance. We must distinct it.
+        // Ensure collections are uniformly deduplicated or initialized, though left
+        // join fetch returns a unique root entity if we use Set, for Lists it may
+        // duplicate if multiple attachments.
+        // It's a OneToMany so List with JOIN FETCH could multiply the comment instance.
+        // We must distinct it.
         return comments.stream().distinct().collect(java.util.stream.Collectors.toList());
     }
 
@@ -275,22 +323,26 @@ public class TicketService {
     }
 
     @Transactional
-    public TicketAttachment addAttachment(Integer ticketId, org.springframework.web.multipart.MultipartFile file, String uploaderUsername) throws java.io.IOException {
+    public TicketAttachment addAttachment(Integer ticketId, org.springframework.web.multipart.MultipartFile file,
+            String uploaderUsername) throws java.io.IOException {
         return addAttachmentInternal(ticketId, file, uploaderUsername, null);
     }
 
     @Transactional
-    public TicketAttachment addCommentAttachment(Integer ticketId, org.springframework.web.multipart.MultipartFile file, String uploaderUsername, TicketComment comment) throws java.io.IOException {
+    public TicketAttachment addCommentAttachment(Integer ticketId, org.springframework.web.multipart.MultipartFile file,
+            String uploaderUsername, TicketComment comment) throws java.io.IOException {
         return addAttachmentInternal(ticketId, file, uploaderUsername, comment);
     }
 
-    private TicketAttachment addAttachmentInternal(Integer ticketId, org.springframework.web.multipart.MultipartFile file, String uploaderUsername, TicketComment comment) throws java.io.IOException {
+    private TicketAttachment addAttachmentInternal(Integer ticketId,
+            org.springframework.web.multipart.MultipartFile file, String uploaderUsername, TicketComment comment)
+            throws java.io.IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Файл не выбран.");
         }
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new IllegalArgumentException("Заявка не найдена: " + ticketId));
-        
+
         TicketAttachment attachment = new TicketAttachment();
         attachment.setTicket(ticket);
         attachment.setComment(comment);
@@ -305,11 +357,11 @@ public class TicketService {
         attachment.setData(file.getBytes());
         User uploader = userRepository.findByUsername(uploaderUsername).orElseThrow();
         attachment.setUploader(uploader);
-        
+
         ticketAttachmentRepository.save(attachment);
-        
+
         logHistory(ticket, uploader, "ATTACHMENT_ADDED", "Добавлен файл: " + attachment.getFileName());
-        
+
         return attachment;
     }
 
@@ -317,18 +369,20 @@ public class TicketService {
     public void deleteAttachment(Integer attachmentId, String username) {
         TicketAttachment attachment = ticketAttachmentRepository.findById(attachmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Вложение не найдено: " + attachmentId));
-        
+
         User user = userRepository.findByUsername(username).orElseThrow();
         Ticket ticket = attachment.getTicket();
-        
+
         // Permission check: Uploader, Support or Admin
-        boolean isUploader = attachment.getUploader() != null && attachment.getUploader().getUsername().equals(username);
-        boolean isSupportOrAdmin = user.getRole().getName().equals("ROLE_IT_SUPPORT") || user.getRole().getName().equals("ROLE_ADMIN");
-        
+        boolean isUploader = attachment.getUploader() != null
+                && attachment.getUploader().getUsername().equals(username);
+        boolean isSupportOrAdmin = user.getRole().getName().equals("ROLE_IT_SUPPORT")
+                || user.getRole().getName().equals("ROLE_ADMIN");
+
         if (!isUploader && !isSupportOrAdmin) {
             throw new IllegalArgumentException("У вас нет прав для удаления этого вложения.");
         }
-        
+
         String fileName = attachment.getFileName();
         ticketAttachmentRepository.delete(attachment);
         logHistory(ticket, user, "ATTACHMENT_DELETED", "Удален файл: " + fileName);
@@ -340,12 +394,12 @@ public class TicketService {
                 .orElseThrow(() -> new IllegalArgumentException("Ticket not found with ID: " + ticketId));
         User author = userRepository.findByUsername(authorUsername)
                 .orElseThrow(() -> new UsernameNotFoundException("Author not found: " + authorUsername));
-        
+
         TicketComment comment = new TicketComment();
         comment.setTicket(ticket);
         comment.setAuthor(author);
         comment.setText(text);
-        
+
         logHistory(ticket, author, "COMMENT_ADDED", "Добавлен комментарий");
         return ticketCommentRepository.save(comment);
     }
@@ -357,31 +411,33 @@ public class TicketService {
         long closedTickets = ticketRepository.countByStatus(Ticket.Status.CLOSED);
         stats.setClosedTickets(closedTickets);
         stats.setOpenTickets(stats.getTotalTickets() - closedTickets);
-        
+
         long overdue = ticketRepository.countBySlaDeadlineBeforeAndStatusNot(LocalDateTime.now(), Ticket.Status.CLOSED);
         stats.setOverdueTickets(overdue);
-        
+
         List<Ticket> closedList = ticketRepository.findAll().stream()
-             .filter(t -> t.getStatus() == Ticket.Status.CLOSED && t.getClosedAt() != null)
-             .toList();
-             
+                .filter(t -> t.getStatus() == Ticket.Status.CLOSED && t.getClosedAt() != null)
+                .toList();
+
         if (!closedList.isEmpty()) {
             double avg = closedList.stream()
-                .mapToLong(t -> java.time.Duration.between(t.getCreatedAt(), t.getClosedAt()).toHours())
-                .average()
-                .orElse(0.0);
+                    .mapToLong(t -> java.time.Duration.between(t.getCreatedAt(), t.getClosedAt()).toHours())
+                    .average()
+                    .orElse(0.0);
             stats.setAvgResolutionTimeHours(avg);
         } else {
             stats.setAvgResolutionTimeHours(0.0);
         }
 
         stats.setStatusDistribution(ticketRepository.findAll().stream()
-                .collect(java.util.stream.Collectors.groupingBy(t -> t.getStatus().name(), java.util.stream.Collectors.counting())));
-        
+                .collect(java.util.stream.Collectors.groupingBy(t -> t.getStatus().name(),
+                        java.util.stream.Collectors.counting())));
+
         stats.setCategoryDistribution(ticketRepository.findAll().stream()
                 .filter(t -> t.getCategory() != null)
-                .collect(java.util.stream.Collectors.groupingBy(t -> t.getCategory().name(), java.util.stream.Collectors.counting())));
-        
+                .collect(java.util.stream.Collectors.groupingBy(t -> t.getCategory().name(),
+                        java.util.stream.Collectors.counting())));
+
         return stats;
     }
 
@@ -399,39 +455,48 @@ public class TicketService {
         double score = 0.0;
 
         // Важность
-        Optional<PriorityWeight> importanceWeight = priorityWeightRepository.findByParamName(PriorityParameter.IMPORTANCE);
-        if (importanceWeight.isPresent() && ticket.getImportance() != null) {
+        Optional<PriorityWeight> importanceWeight = priorityWeightRepository
+                .findByParamName(PriorityParameter.IMPORTANCE);
+        if (importanceWeight.isPresent() && !Boolean.FALSE.equals(importanceWeight.get().getActive())
+                && ticket.getImportance() != null) {
             score += importanceWeight.get().getWeightValue() * (ticket.getImportance().ordinal() + 1);
         }
 
         // Кол-во новых заявок
-        Optional<PriorityWeight> newerUnresolvedWeight = priorityWeightRepository.findByParamName(PriorityParameter.NEWER_UNRESOLVED_TICKETS);
-        if (newerUnresolvedWeight.isPresent() && ticket.getCreatedAt() != null) {
-            long count = ticketRepository.countByStatusNotAndCreatedAtAfter(Ticket.Status.CLOSED, ticket.getCreatedAt());
+        Optional<PriorityWeight> newerUnresolvedWeight = priorityWeightRepository
+                .findByParamName(PriorityParameter.NEWER_UNRESOLVED_TICKETS);
+        if (newerUnresolvedWeight.isPresent() && !Boolean.FALSE.equals(newerUnresolvedWeight.get().getActive())
+                && ticket.getCreatedAt() != null) {
+            long count = ticketRepository.countByStatusNotAndCreatedAtAfter(Ticket.Status.CLOSED,
+                    ticket.getCreatedAt());
             score += newerUnresolvedWeight.get().getWeightValue() * count;
         }
 
         // Влияние
         Optional<PriorityWeight> impactWeight = priorityWeightRepository.findByParamName(PriorityParameter.IMPACT);
-        if (impactWeight.isPresent() && ticket.getImpact() != null) {
+        if (impactWeight.isPresent() && !Boolean.FALSE.equals(impactWeight.get().getActive())
+                && ticket.getImpact() != null) {
             score += impactWeight.get().getWeightValue() * (ticket.getImpact().ordinal() + 1);
         }
 
         // Срочность
         Optional<PriorityWeight> urgencyWeight = priorityWeightRepository.findByParamName(PriorityParameter.URGENCY);
-        if (urgencyWeight.isPresent() && ticket.getUrgency() != null) {
+        if (urgencyWeight.isPresent() && !Boolean.FALSE.equals(urgencyWeight.get().getActive())
+                && ticket.getUrgency() != null) {
             score += urgencyWeight.get().getWeightValue() * (ticket.getUrgency().ordinal() + 1);
         }
 
         // Категория
         Optional<PriorityWeight> categoryWeight = priorityWeightRepository.findByParamName(PriorityParameter.CATEGORY);
-        if (categoryWeight.isPresent() && ticket.getCategory() != null) {
+        if (categoryWeight.isPresent() && !Boolean.FALSE.equals(categoryWeight.get().getActive())
+                && ticket.getCategory() != null) {
             score += categoryWeight.get().getWeightValue() * (ticket.getCategory().ordinal() + 1);
         }
 
         // Значимость роли
         Optional<PriorityWeight> roleWeight = priorityWeightRepository.findByParamName(PriorityParameter.CREATOR_ROLE);
-        if (roleWeight.isPresent() && ticket.getCreator() != null && ticket.getCreator().getRole() != null) {
+        if (roleWeight.isPresent() && !Boolean.FALSE.equals(roleWeight.get().getActive()) && ticket.getCreator() != null
+                && ticket.getCreator().getRole() != null) {
             String roleName = ticket.getCreator().getRole().getName();
             if ("ROLE_VIP".equals(roleName)) {
                 score += roleWeight.get().getWeightValue();
@@ -441,10 +506,22 @@ public class TicketService {
         }
 
         // Время ожидания
-        Optional<PriorityWeight> waitingWeight = priorityWeightRepository.findByParamName(PriorityParameter.WAITING_HOURS);
-        if (waitingWeight.isPresent() && ticket.getCreatedAt() != null) {
+        Optional<PriorityWeight> waitingWeight = priorityWeightRepository
+                .findByParamName(PriorityParameter.WAITING_HOURS);
+        if (waitingWeight.isPresent() && !Boolean.FALSE.equals(waitingWeight.get().getActive())
+                && ticket.getCreatedAt() != null) {
             long hours = java.time.Duration.between(ticket.getCreatedAt(), LocalDateTime.now()).toHours();
             score += waitingWeight.get().getWeightValue() * hours;
+        }
+
+        // Динамические параметры
+        if (ticket.getDynamicValues() != null) {
+            for (TicketDynamicValue dv : ticket.getDynamicValues()) {
+                if (dv.getFilter() != null && !Boolean.FALSE.equals(dv.getFilter().getIsActive())
+                        && dv.getValue() != null) {
+                    score += dv.getFilter().getWeight() * dv.getValue().getWeightValue();
+                }
+            }
         }
 
         return score;

@@ -94,7 +94,7 @@
                 <Link to="/admin" class="px-3 py-2 rounded-xl hover:bg-white/10 transition-colors whitespace-nowrap">Аналитика</Link>
                 <Link to="/admin/support-tickets" class="px-3 py-2 rounded-xl hover:bg-white/10 transition-colors whitespace-nowrap">Взятые</Link>
                 <Link to="/admin/users" class="px-3 py-2 rounded-xl hover:bg-white/10 transition-colors whitespace-nowrap">Пользователи</Link>
-                <Link to="/admin/priority" class="px-3 py-2 rounded-xl hover:bg-white/10 transition-colors whitespace-nowrap">Настройки</Link>
+                <Link to="/admin/priority" class="px-3 py-2 rounded-xl hover:bg-white/10 transition-colors whitespace-nowrap">Приоритеты</Link>
               {/if}
             {/if}
           </div>
@@ -110,7 +110,14 @@
                 </div>
               </Link>
             </div>
-            <a href="/logout" class="bg-red-500/80 hover:bg-red-600 text-white px-2 md:px-3 py-2 rounded-xl transition-colors text-xs uppercase font-black tracking-tighter whitespace-nowrap">Выйти</a>
+            <a href="/logout" 
+               class="p-2.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all duration-300 group shadow-sm hover:shadow-red-200" 
+               title="Выйти"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </a>
           </div>
         </div>
       </nav>

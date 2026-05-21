@@ -46,7 +46,7 @@
                  </svg>
             </div>
             <h2 class="text-3xl font-black text-gray-900 tracking-tight">Вход в систему</h2>
-            <p class="mt-3 text-sm text-gray-500 font-medium italic">HelpDesk v2 Modernized</p>
+            <p class="mt-3 text-sm text-gray-500 font-medium italic">Система управления заявками</p>
         </div>
 
         <form on:submit|preventDefault={handleLogin} class="mt-8 space-y-6">

@@ -86,7 +86,8 @@ public class TicketRestController {
                 request.getImportance(),
                 request.getUrgency(),
                 request.getImpact(),
-                request.getCategory()
+                request.getCategory(),
+                request.getDynamicValues()
         );
         return mapToDto(ticket);
     }
@@ -228,6 +229,12 @@ public class TicketRestController {
                 .createdAt(ticket.getCreatedAt())
                 .closedAt(ticket.getClosedAt())
                 .slaDeadline(ticket.getSlaDeadline())
+                .dynamicValues(ticket.getDynamicValues().stream()
+                        .collect(Collectors.toMap(
+                                dv -> dv.getFilter().getDisplayName(),
+                                dv -> dv.getValue().getDisplayName(),
+                                (v1, v2) -> v1 // handle duplicates if any
+                        )))
                 .build();
     }
 }

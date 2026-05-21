@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -28,4 +29,5 @@ public class TicketDto {
     private LocalDateTime closedAt;
     private LocalDateTime slaDeadline;
     private List<AttachmentDto> attachments;
+    private Map<String, String> dynamicValues; // filterDisplayName -> valueDisplayName
 }

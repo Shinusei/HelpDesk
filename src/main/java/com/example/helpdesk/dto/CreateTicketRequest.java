@@ -5,6 +5,7 @@ import com.example.helpdesk.domain.Impact;
 import com.example.helpdesk.domain.Importance;
 import com.example.helpdesk.domain.Urgency;
 import lombok.Data;
+import java.util.Map;
 
 @Data
 public class CreateTicketRequest {
@@ -14,4 +15,5 @@ public class CreateTicketRequest {
     private Urgency urgency;
     private Impact impact;
     private Category category;
+    private Map<Integer, Integer> dynamicValues; // filterId -> valueId
 }
